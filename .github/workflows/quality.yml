@@ -1,0 +1,66 @@
+name: Quality Checks
+
+on:
+    push:
+        branches: [main, develop]
+    pull_request:
+        branches: [main, develop]
+
+jobs:
+    quality:
+        name: Code Quality Checks
+        runs-on: ubuntu-latest
+
+        permissions:
+            contents: read
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Deno
+              uses: denoland/setup-deno@v1
+              with:
+                  deno-version: v2.x
+
+            - name: Verify formatting
+              run: deno task fmt:check
+
+            - name: Run linter
+              run: deno task lint
+
+            - name: Type check
+              run: deno task check
+
+            - name: Run tests
+              run: deno task test
+
+    coverage:
+        name: Test Coverage
+        runs-on: ubuntu-latest
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+
+        permissions:
+            contents: read
+
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v4
+
+            - name: Setup Deno
+              uses: denoland/setup-deno@v1
+              with:
+                  deno-version: v2.x
+
+            - name: Run tests with coverage
+              run: deno task test:coverage
+
+            - name: Generate coverage report
+              run: deno task coverage
+
+            - name: Upload coverage artifact
+              uses: actions/upload-artifact@v4
+              with:
+                  name: coverage-report
+                  path: coverage/
+                  retention-days: 30
