@@ -32,7 +32,7 @@ export class FilePatcher {
   patchSummary(file: MetadataFile, summary: string): string {
     if (file.type === "desktop") {
       console.warn(
-        "  ⚠️  Skipping desktop file - summaries only added to appstream files"
+        "  ⚠️  Skipping desktop file - summaries only added to appstream files",
       );
       return file.content;
     }
@@ -49,7 +49,7 @@ export class FilePatcher {
   patchDescription(file: MetadataFile, description: string): string {
     if (file.type === "desktop") {
       console.warn(
-        "  ⚠️  Skipping desktop file - descriptions only added to appstream files"
+        "  ⚠️  Skipping desktop file - descriptions only added to appstream files",
       );
       return file.content;
     }
@@ -75,7 +75,7 @@ export class FilePatcher {
       // Add Keywords line after [Desktop Entry] section
       const lines = content.split("\n");
       const desktopEntryIndex = lines.findIndex(
-        (line) => line.trim() === "[Desktop Entry]"
+        (line) => line.trim() === "[Desktop Entry]",
       );
 
       if (desktopEntryIndex !== -1) {
@@ -106,7 +106,8 @@ export class FilePatcher {
       .map((k) => `${contentIndent}<keyword>${this.escapeXml(k)}</keyword>`)
       .join("\n");
 
-    const keywordsSection = `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
+    const keywordsSection =
+      `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
 
     // Check if <keywords> section already exists
     const keywordsRegex = /^\s*<keywords>[\s\S]*?<\/keywords>/m;
@@ -226,13 +227,15 @@ export class FilePatcher {
           .toLowerCase();
         if (!normalizedDesc.includes(normalizedBlock)) {
           // Wrap in <p> tags and indent properly
-          const disclaimerParagraph = `${contentIndent}<p>\n${contentIndent}  ${block}\n${contentIndent}</p>`;
+          const disclaimerParagraph =
+            `${contentIndent}<p>\n${contentIndent}  ${block}\n${contentIndent}</p>`;
           indentedDescription += `\n${disclaimerParagraph}`;
         }
       }
     }
 
-    const descriptionSection = `${baseIndent}<description>\n${indentedDescription}\n${baseIndent}</description>`;
+    const descriptionSection =
+      `${baseIndent}<description>\n${indentedDescription}\n${baseIndent}</description>`;
 
     // Check if <description> section already exists
     const descriptionRegex = /^\s*<description>[\s\S]*?<\/description>/m;
@@ -259,7 +262,7 @@ export class FilePatcher {
           if (componentEndRegex.test(content)) {
             return content.replace(
               componentEndRegex,
-              `${descriptionSection}\n$1`
+              `${descriptionSection}\n$1`,
             );
           } else {
             return content + "\n" + descriptionSection;

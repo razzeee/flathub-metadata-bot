@@ -60,7 +60,7 @@ export class RepositoryManager {
    */
   async findMetadataFiles(
     repoPath: string,
-    appId: string
+    appId: string,
   ): Promise<MetadataFile[]> {
     const files: MetadataFile[] = [];
 
@@ -211,7 +211,7 @@ export class RepositoryManager {
   async pushBranch(
     repoPath: string,
     remote: string,
-    branchName: string
+    branchName: string,
   ): Promise<void> {
     const command = new Deno.Command("git", {
       args: ["-C", repoPath, "push", remote, branchName],

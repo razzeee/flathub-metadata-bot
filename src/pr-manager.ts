@@ -57,7 +57,7 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitHub PR: ${response.status} ${error}`
+        `Failed to create GitHub PR: ${response.status} ${error}`,
       );
     }
 
@@ -78,7 +78,7 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch user: ${resp.status} ${await resp.text()}`
+        `Failed to fetch user: ${resp.status} ${await resp.text()}`,
       );
     }
     const data = await resp.json();
@@ -133,6 +133,28 @@ export class PRManager {
     return { owner, repo };
   }
 
+  /** Fetch repository metadata (e.g. default branch) */
+  async getGitHubRepoMetadata(
+    repoUrl: string,
+  ): Promise<{ default_branch: string }> {
+    if (!this.githubToken) throw new Error("GitHub token not configured");
+    const { owner, repo } = this.parseGitHubRepoUrl(repoUrl);
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}`;
+    const resp = await fetch(apiUrl, {
+      headers: {
+        Authorization: `token ${this.githubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (!resp.ok) {
+      throw new Error(
+        `Failed to fetch repo metadata: ${resp.status} ${await resp.text()}`,
+      );
+    }
+    const data = await resp.json();
+    return { default_branch: data.default_branch || "main" };
+  }
+
   /**
    * Create a merge request on GitLab
    * @param repoUrl - Repository URL
@@ -153,7 +175,8 @@ export class PRManager {
     const projectPath = encodeURIComponent(match[1]);
 
     // Create MR using GitLab API
-    const apiUrl = `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests`;
+    const apiUrl =
+      `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests`;
 
     const body = {
       source_branch: options.branchName,
@@ -174,7 +197,7 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitLab MR: ${response.status} ${error}`
+        `Failed to create GitLab MR: ${response.status} ${error}`,
       );
     }
 
