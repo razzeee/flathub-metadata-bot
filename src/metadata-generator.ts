@@ -40,7 +40,7 @@ export class MetadataGenerator {
     } else {
       if (!config.apiKey) {
         throw new Error(
-          "OpenAI API key is required when using OpenAI provider"
+          "OpenAI API key is required when using OpenAI provider",
         );
       }
       this.model = new ChatOpenAI({
@@ -72,7 +72,7 @@ export class MetadataGenerator {
           (hit) =>
             `- ${hit.name}: ${
               hit.keywords?.slice(0, 3).join(", ") || "no keywords"
-            }`
+            }`,
         )
         .join("\n");
 
@@ -136,7 +136,8 @@ export class MetadataGenerator {
       this.getCategories(),
     ]);
 
-    const systemPrompt = `You are an SEO expert specializing in Linux desktop application discoverability.
+    const systemPrompt =
+      `You are an SEO expert specializing in Linux desktop application discoverability.
 Your task is to generate approximately 5 highly effective, SEO-optimized keywords that maximize search visibility.
 
 IMPORTANT: Target 5 keywords. Only go up to 8 if truly necessary. Quality over quantity!
@@ -253,7 +254,8 @@ Return ONLY the comma-separated keywords with NO other text.`;
    * @returns Generated summary string
    */
   async generateSummary(appstream: AppstreamData): Promise<string> {
-    const systemPrompt = `You are an expert at writing app summaries following Flathub's quality guidelines.
+    const systemPrompt =
+      `You are an expert at writing app summaries following Flathub's quality guidelines.
 
 CRITICAL OUTPUT FORMAT:
 - Return ONLY the summary text
@@ -294,7 +296,8 @@ BAD EXAMPLES:
 - "GTK4 chat app" (technical, mentions toolkit)
 - "The best editor" (starts with article)`;
 
-    const userPrompt = `Generate a concise, user-friendly summary for this application:
+    const userPrompt =
+      `Generate a concise, user-friendly summary for this application:
 
 Name: ${appstream.name}
 Current Summary: ${appstream.summary || "N/A"}
@@ -330,8 +333,8 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
       if (
         summary.replace(/\s/g, "") === summary.replace(/\s/g, "").toUpperCase()
       ) {
-        summary =
-          summary.charAt(0).toUpperCase() + summary.slice(1).toLowerCase();
+        summary = summary.charAt(0).toUpperCase() +
+          summary.slice(1).toLowerCase();
       }
 
       // Ensure first character is capitalized (sentence case)
@@ -346,13 +349,13 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
       if (summary.toLowerCase() === appstream.name.toLowerCase()) {
         throw new Error(
           `Generated summary is just the app name ("${summary}"). ` +
-            `The summary should describe what the app does, not repeat its name.`
+            `The summary should describe what the app does, not repeat its name.`,
         );
       }
 
       if (summary.length > 35) {
         console.warn(
-          `  ⚠️  Generated summary is ${summary.length} characters (max 35)`
+          `  ⚠️  Generated summary is ${summary.length} characters (max 35)`,
         );
       }
 
@@ -369,7 +372,8 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
    * @returns Generated description string formatted with proper AppStream XML tags
    */
   async generateDescription(appstream: AppstreamData): Promise<string> {
-    const systemPrompt = `You are an expert at writing app descriptions for software stores, following Flathub and AppStream quality guidelines.
+    const systemPrompt =
+      `You are an expert at writing app descriptions for software stores, following Flathub and AppStream quality guidelines.
 
   CRITICAL OUTPUT FORMAT:
   - Use proper AppStream XML markup: <p>, <ul>, <ol>, <li>, <em>, <code>
@@ -433,7 +437,8 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
   - Every paragraph or sentence starting with the app name
   - Any XML tag with attributes (e.g. <ol style="...">, <li type="...">)`;
 
-    const userPrompt = `Generate a comprehensive, well-formatted description for this application:
+    const userPrompt =
+      `Generate a comprehensive, well-formatted description for this application:
 
 Name: ${appstream.name}
 Summary: ${appstream.summary}
@@ -470,7 +475,7 @@ Return ONLY the XML-formatted description with NO surrounding text, explanations
       ) {
         // If no tags found, wrap plain text in paragraph tags
         console.warn(
-          "  ⚠️  Description missing XML tags, wrapping in <p> tags"
+          "  ⚠️  Description missing XML tags, wrapping in <p> tags",
         );
 
         // Split by double newlines for paragraphs
@@ -493,7 +498,7 @@ Return ONLY the XML-formatted description with NO surrounding text, explanations
    */
   private async handleError(
     error: unknown,
-    generationType: string
+    generationType: string,
   ): Promise<never> {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
@@ -509,13 +514,13 @@ Return ONLY the XML-formatted description with NO surrounding text, explanations
               `Available models on your system:\n` +
               availableModels.map((m) => `  - ${m}`).join("\n") +
               `\n\nTo use one of these models, set LLM_MODEL in your .env file.\n` +
-              `Or install a new model with: ollama pull llama3.2:1b`
+              `Or install a new model with: ollama pull llama3.2:1b`,
           );
         } else {
           throw new Error(
             `Model '${modelName}' not found.\n\n` +
               `Install it with: ollama pull ${modelName}\n` +
-              `Popular models: llama3.2:1b, llama3.2, mistral, qwen2.5, phi3`
+              `Popular models: llama3.2:1b, llama3.2, mistral, qwen2.5, phi3`,
           );
         }
       } else if (
@@ -530,7 +535,7 @@ Return ONLY the XML-formatted description with NO surrounding text, explanations
             `  1. Start Ollama: ollama serve\n` +
             `  2. Or check if it's running: curl ${
               this.config.ollamaBaseUrl || "http://localhost:11435"
-            }/api/tags`
+            }/api/tags`,
         );
       }
     }

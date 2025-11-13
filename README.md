@@ -29,11 +29,13 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
 1. Clone this repository (or you're already in it!)
 
 2. Copy the example environment file:
+
 ```bash
 cp .env.example .env
 ```
 
 3. Edit `.env` and add your API keys:
+
 ```env
 OPENAI_API_KEY=sk-...
 GITHUB_TOKEN=ghp_...
@@ -42,14 +44,53 @@ GITLAB_TOKEN=glpat-...
 
 ## Usage
 
+### Interactive Workflow
+
+The bot now provides an interactive workflow where you can **accept**, **regenerate**, **skip**, or **quit** after each generated value:
+
+- **(a)ccept** - Accept the generated value and include it in the PR
+- **(r)egenerate** - Generate a new value (AI will create a different version)
+- **(s)kip** - Skip this metadata type (won't be included in the PR)
+- **(q)uit** - Exit the program immediately
+
+This allows you to:
+
+- Run with `--mode all` but skip keywords if you only want summary and description
+- Regenerate individual values until you're satisfied
+- Create PRs with only the metadata changes you approve
+
 ### Generate All Metadata (default mode)
 
-By default, the bot generates keywords, summary, and description all in one PR:
+By default, the bot generates keywords, summary, and description. You'll be prompted after each:
 
 ```bash
 deno task dev org.mozilla.Firefox
 # or explicitly:
 deno task dev --mode all org.mozilla.Firefox
+```
+
+**Example interaction:**
+
+```
+📝 Generating keywords...
+✅ Generated 5 keywords:
+   1. web browser
+   2. firefox
+   3. mozilla
+   ...
+============================================================
+Keywords: (a)ccept, (r)egenerate, (s)kip, or (q)uit: a
+============================================================
+
+📝 Generating summary...
+✅ Generated summary (28 chars):
+   "Fast, private web browser"
+============================================================
+Summary: (a)ccept, (r)egenerate, (s)kip, or (q)uit: s
+⏭️  Skipping summary
+
+📝 Generating description...
+...
 ```
 
 ### Generate Keywords Only
@@ -72,9 +113,10 @@ deno task dev --mode description org.inkscape.Inkscape
 
 ### Modes
 
-- **all** (default) - Generates keywords, summary, AND description in a single PR
-  - Most efficient way to improve app metadata
-  - All changes combined into one pull request
+- **all** (default) - Generates keywords, summary, AND description
+  - You'll be prompted to accept/regenerate/skip each one individually
+  - Only accepted values will be included in the final PR
+  - Most flexible approach
 - **keywords** - Generates 5-8 SEO-optimized keywords for search discoverability
   - Added to both `.desktop` and appstream XML files
 - **summary** - Generates a concise summary following Flathub quality guidelines
@@ -137,6 +179,7 @@ To use a local Ollama instance instead of OpenAI:
 **Option 1: Using Alpaca (GUI, recommended for beginners)**
 
 1. Install Alpaca from Flathub:
+
 ```bash
 flatpak install flathub com.jeffser.Alpaca
 ```
@@ -148,6 +191,7 @@ flatpak install flathub com.jeffser.Alpaca
 4. Enable **"Expose Ollama to Network"**
 
 5. Configure your `.env`:
+
 ```env
 LLM_PROVIDER=ollama
 LLM_MODEL=llama3.2:1b
@@ -155,6 +199,7 @@ OLLAMA_BASE_URL=http://localhost:11435
 ```
 
 6. Run the bot:
+
 ```bash
 deno task dev org.mozilla.Firefox
 ```
@@ -164,11 +209,13 @@ deno task dev org.mozilla.Firefox
 1. Install and start Ollama: https://ollama.ai/
 
 2. Pull a model:
+
 ```bash
 ollama pull llama3.1
 ```
 
 3. Configure your `.env`:
+
 ```env
 LLM_PROVIDER=ollama
 LLM_MODEL=llama3.2:1b
@@ -176,30 +223,36 @@ OLLAMA_BASE_URL=http://localhost:11435
 ```
 
 4. Run the bot:
+
 ```bash
 deno task dev org.mozilla.Firefox
 ```
 
 ### Using OpenAI
+
 1. Go to https://platform.openai.com/api-keys
 2. Create a new API key
 
 **GitHub:**
+
 1. Go to Settings → Developer settings → Personal access tokens
 2. Generate new token with `repo` scope
 
 **GitLab:**
+
 1. Go to Preferences → Access Tokens
 2. Create token with `api` scope
 
 ## Examples
 
 Process a single app:
+
 ```bash
 deno task dev org.blender.Blender
 ```
 
 Without PR creation (no tokens needed):
+
 ```bash
 # Bot will clone, patch files, and create a local branch
 # You can manually push and create PR
@@ -209,7 +262,9 @@ deno task dev org.inkscape.Inkscape
 ## File Format Support
 
 ### Desktop Files (.desktop)
+
 Adds or updates the `Keywords` line:
+
 ```desktop
 [Desktop Entry]
 Name=MyApp
@@ -217,7 +272,9 @@ Keywords=keyword1;keyword2;keyword3;
 ```
 
 ### AppStream Metainfo/Appdata XML
+
 Adds or updates the `<keywords>` section:
+
 ```xml
 <component>
   ...
@@ -232,14 +289,17 @@ Adds or updates the `<keywords>` section:
 ## Troubleshooting
 
 **Error: "OPENAI_API_KEY not set"**
+
 - Make sure you've created a `.env` file and added your OpenAI API key
 
 **Error: "Failed to clone repository"**
+
 - Ensure Git is installed and accessible
 - Check if the repository URL is valid
 - Private repositories may require authentication
 
 **Error: "Failed to create GitHub PR"**
+
 - Verify your GitHub token has the `repo` scope
 - Ensure you have write access to the repository
 - Check if a branch with the same name already exists
@@ -247,6 +307,7 @@ Adds or updates the `<keywords>` section:
 ## Development
 
 The project uses:
+
 - **Deno 2.x** - Modern JavaScript/TypeScript runtime
 - **LangChain** - LLM orchestration framework
 - **OpenAI API / Ollama** - LLM models for metadata generation
@@ -309,6 +370,7 @@ deno task generate
 ```
 
 This will:
+
 1. Fetch the latest OpenAPI spec from `https://flathub.org/api/v2/openapi.json`
 2. Generate TypeScript types and functions in `src/generated/flathub-api.ts`
 3. The wrapper in `src/flathub-api.ts` provides convenience methods and type guards
@@ -333,6 +395,7 @@ MIT
 ## Disclaimer
 
 This bot creates automated pull requests. Please:
+
 - Review generated keywords before merging
 - Respect repository contribution guidelines
 - Use appropriate rate limiting

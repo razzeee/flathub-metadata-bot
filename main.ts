@@ -29,6 +29,34 @@ const OLLAMA_BASE_URL = env.OLLAMA_BASE_URL || Deno.env.get("OLLAMA_BASE_URL");
 const GITHUB_TOKEN = env.GITHUB_TOKEN || Deno.env.get("GITHUB_TOKEN");
 const GITLAB_TOKEN = env.GITLAB_TOKEN || Deno.env.get("GITLAB_TOKEN");
 
+/**
+ * Prompt user after generating a value
+ * Returns: 'accept', 'regenerate', 'skip', or 'quit'
+ */
+function promptForValue(metadataType: string): string {
+  console.log("\n" + "=".repeat(60));
+  const response = prompt(
+    `${metadataType}: (a)ccept, (r)egenerate, (s)kip, or (q)uit: `
+  );
+  console.log("=".repeat(60));
+
+  if (response === null || response.toLowerCase() === "q") {
+    console.log("\n👋 Cancelled by user");
+    Deno.exit(0);
+  }
+
+  const normalized = response.toLowerCase();
+  if (normalized === "a" || normalized === "accept") return "accept";
+  if (normalized === "r" || normalized === "regenerate") {
+    return "regenerate";
+  }
+  if (normalized === "s" || normalized === "skip") return "skip";
+
+  // Default to regenerate for invalid input
+  console.log("Invalid input, treating as regenerate");
+  return "regenerate";
+}
+
 async function main() {
   // Parse command line arguments
   const args = Deno.args;
@@ -60,14 +88,14 @@ async function main() {
 
   if (!appId) {
     console.error(
-      "Usage: deno task dev [--mode <all|keywords|summary|description>] <app-id>",
+      "Usage: deno task dev [--mode <all|keywords|summary|description>] <app-id>"
     );
     console.error("Example: deno task dev org.mozilla.Firefox");
     console.error("Example: deno task dev --mode keywords org.mozilla.Firefox");
     console.error("Example: deno task dev --mode summary org.mozilla.Firefox");
     console.error("\nModes:");
     console.error(
-      "  all          - Generate keywords, summary, and description (default)",
+      "  all          - Generate keywords, summary, and description (default)"
     );
     console.error("  keywords     - Generate keywords only");
     console.error("  summary      - Generate app summary only");
@@ -87,7 +115,7 @@ async function main() {
   console.log(`   LLM Provider: ${LLM_PROVIDER}`);
   if (LLM_PROVIDER === "ollama") {
     console.log(
-      `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`,
+      `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`
     );
     console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
   } else {
@@ -111,73 +139,27 @@ async function main() {
       ollamaBaseUrl: OLLAMA_BASE_URL,
     });
 
-    // Variables to store generated metadata (will be set in loop)
-    let generatedContent:
-      | string[]
-      | string
-      | { keywords: string[]; summary: string; description: string } = [];
-    let commitMessage = "";
-    let prTitle = "";
-    let prDescription = "";
+    // Variables to store generated metadata
     let keywords: string[] = [];
     let summary = "";
     let description = "";
+    const acceptedMetadata: {
+      keywords: boolean;
+      summary: boolean;
+      description: boolean;
+    } = {
+      keywords: false,
+      summary: false,
+      description: false,
+    };
 
-    // Generation loop - allow regeneration
-    let accepted = false;
-    while (!accepted) {
-      if (mode === "all") {
-        // Generate all metadata types
-        console.log("\n🤖 Generating all metadata with AI...");
-
+    // Generate keywords if needed
+    if (mode === "all" || mode === "keywords") {
+      let keywordDecision = "";
+      while (keywordDecision !== "accept" && keywordDecision !== "skip") {
         console.log("\n📝 Generating keywords...");
         keywords = await metadataGenerator.generateKeywords(appstream);
-        if (keywords.length === 0) {
-          console.error("\n❌ No keywords were generated!");
-          console.error("The AI did not produce any valid keywords.");
-          console.error("Please try again or check your LLM configuration.");
-          Deno.exit(1);
-        }
-        console.log(`✅ Generated ${keywords.length} keywords:`);
-        keywords.forEach((k, i) => console.log(`   ${i + 1}. ${k}`));
 
-        console.log("\n📝 Generating summary...");
-        summary = await metadataGenerator.generateSummary(appstream);
-        console.log(`✅ Generated summary (${summary.length} chars):`);
-        console.log(`   "${summary}"`);
-        if (summary.length > 35) {
-          console.warn(
-            `   ⚠️  Warning: Summary exceeds 35 characters (${summary.length})`,
-          );
-        }
-
-        console.log("\n📝 Generating description...");
-        description = await metadataGenerator.generateDescription(appstream);
-        console.log(`✅ Generated description (${description.length} chars):`);
-        const lines = description.split("\n");
-        lines.forEach((line) => console.log(`   ${line}`));
-
-        generatedContent = { keywords, summary, description };
-        commitMessage =
-          `Update metadata for ${appId}\n\nAutomatically generated:\n- Keywords: ${
-            keywords.join(
-              ", ",
-            )
-          }\n- Summary: ${summary}\n- Description: Updated`;
-        prTitle = `Update metadata for ${appId}`;
-        prDescription =
-          `This PR updates the metadata to improve discoverability and user experience for ${appstream.name}.\n\n**Generated keywords:**\n${
-            keywords
-              .map((k: string) => `- ${k}`)
-              .join(
-                "\n",
-              )
-          }\n\n**Generated summary:**\n> ${summary}\n\n**Generated description:**\n\n${description}\n\nGenerated by Metadata Bot 🤖`;
-      } else if (mode === "keywords") {
-        console.log("\n🤖 Generating keywords with AI...");
-        keywords = await metadataGenerator.generateKeywords(appstream);
-
-        // Validate that we have keywords
         if (keywords.length === 0) {
           console.error("\n❌ No keywords were generated!");
           console.error("The AI did not produce any valid keywords.");
@@ -188,74 +170,108 @@ async function main() {
         console.log(`✅ Generated ${keywords.length} keywords:`);
         keywords.forEach((k, i) => console.log(`   ${i + 1}. ${k}`));
 
-        generatedContent = keywords;
-        commitMessage =
-          `Add keywords to ${appId}\n\nAutomatically generated keywords:\n${
-            keywords.join(
-              ", ",
-            )
-          }`;
-        prTitle = `Add keywords to ${appId}`;
-        prDescription =
-          `This PR adds automatically generated keywords to improve discoverability of ${appstream.name}.\n\n**Generated keywords:**\n${
-            keywords
-              .map((k: string) => `- ${k}`)
-              .join("\n")
-          }\n\nGenerated by Metadata Bot 🤖`;
-      } else if (mode === "summary") {
-        console.log("\n🤖 Generating summary with AI...");
-        summary = await metadataGenerator.generateSummary(appstream);
-
-        console.log(`✅ Generated summary (${summary.length} chars):`);
-        console.log(`   "${summary}"`);
-
-        if (summary.length > 35) {
-          console.warn(
-            `   ⚠️  Warning: Summary exceeds 35 characters (${summary.length})`,
-          );
+        keywordDecision = promptForValue("Keywords");
+        if (keywordDecision === "accept") {
+          acceptedMetadata.keywords = true;
+        } else if (keywordDecision === "skip") {
+          console.log("⏭️  Skipping keywords");
+        } else {
+          console.log("🔄 Regenerating keywords...");
         }
-
-        generatedContent = summary;
-        commitMessage =
-          `Update summary for ${appId}\n\nAutomatically generated summary:\n${summary}`;
-        prTitle = `Update summary for ${appId}`;
-        prDescription =
-          `This PR updates the summary to improve discoverability and user experience for ${appstream.name}.\n\n**Generated summary:**\n> ${summary}\n\nGenerated by Metadata Bot 🤖`;
-      } else {
-        // mode === "description"
-        console.log("\n🤖 Generating description with AI...");
-        description = await metadataGenerator.generateDescription(appstream);
-
-        console.log(`✅ Generated description (${description.length} chars):`);
-        const lines = description.split("\n");
-        lines.forEach((line) => console.log(`   ${line}`));
-
-        generatedContent = description;
-        commitMessage =
-          `Update description for ${appId}\n\nAutomatically generated description`;
-        prTitle = `Update description for ${appId}`;
-        prDescription =
-          `This PR updates the description to provide better information for users of ${appstream.name}.\n\n**Generated description:**\n\n${description}\n\nGenerated by Metadata Bot 🤖`;
-      }
-
-      // Ask user for confirmation
-      console.log("\n" + "=".repeat(60));
-      const response = prompt(
-        "Accept these values? (y=yes, n=regenerate, q=quit): ",
-      );
-      console.log("=".repeat(60));
-
-      if (response === null || response.toLowerCase() === "q") {
-        console.log("\n👋 Cancelled by user");
-        Deno.exit(0);
-      } else if (response.toLowerCase() === "y") {
-        accepted = true;
-      } else {
-        console.log("\n🔄 Regenerating...");
       }
     }
 
-    // User accepted, proceed with repo operations
+    // Generate summary if needed
+    if (mode === "all" || mode === "summary") {
+      let summaryDecision = "";
+      while (summaryDecision !== "accept" && summaryDecision !== "skip") {
+        console.log("\n📝 Generating summary...");
+        summary = await metadataGenerator.generateSummary(appstream);
+
+        console.log(`✅ Generated summary (${summary.length} chars):`);
+        console.log(`   "${summary}"`);
+        if (summary.length > 35) {
+          console.warn(
+            `   ⚠️  Warning: Summary exceeds 35 characters (${summary.length})`
+          );
+        }
+
+        summaryDecision = promptForValue("Summary");
+        if (summaryDecision === "accept") {
+          acceptedMetadata.summary = true;
+        } else if (summaryDecision === "skip") {
+          console.log("⏭️  Skipping summary");
+        } else {
+          console.log("🔄 Regenerating summary...");
+        }
+      }
+    }
+
+    // Generate description if needed
+    if (mode === "all" || mode === "description") {
+      let descriptionDecision = "";
+      while (
+        descriptionDecision !== "accept" &&
+        descriptionDecision !== "skip"
+      ) {
+        console.log("\n📝 Generating description...");
+        description = await metadataGenerator.generateDescription(appstream);
+
+        console.log(`✅ Generated description (${description.length} chars):`);
+        const lines = description.split("\n");
+        lines.forEach((line) => console.log(`   ${line}`));
+
+        descriptionDecision = promptForValue("Description");
+        if (descriptionDecision === "accept") {
+          acceptedMetadata.description = true;
+        } else if (descriptionDecision === "skip") {
+          console.log("⏭️  Skipping description");
+        } else {
+          console.log("🔄 Regenerating description...");
+        }
+      }
+    }
+
+    // Check if any metadata was accepted
+    if (
+      !acceptedMetadata.keywords &&
+      !acceptedMetadata.summary &&
+      !acceptedMetadata.description
+    ) {
+      console.log("\n⚠️  No metadata changes were accepted. Exiting.");
+      Deno.exit(0);
+    }
+
+    // Build commit message and PR details based on accepted metadata
+    const acceptedItems: string[] = [];
+    const acceptedChanges: string[] = [];
+
+    if (acceptedMetadata.keywords) {
+      acceptedItems.push(`Keywords: ${keywords.join(", ")}`);
+      acceptedChanges.push(
+        `**Generated keywords:**\n${keywords
+          .map((k: string) => `- ${k}`)
+          .join("\n")}`
+      );
+    }
+    if (acceptedMetadata.summary) {
+      acceptedItems.push(`Summary: ${summary}`);
+      acceptedChanges.push(`**Generated summary:**\n> ${summary}`);
+    }
+    if (acceptedMetadata.description) {
+      acceptedItems.push(`Description: Updated`);
+      acceptedChanges.push(`**Generated description:**\n\n${description}`);
+    }
+
+    const commitMessage = `Update metadata for ${appId}\n\nAutomatically generated:\n${acceptedItems
+      .map((item) => `- ${item}`)
+      .join("\n")}`;
+    const prTitle = `Update metadata for ${appId}`;
+    const prDescription = `This PR updates the metadata to improve discoverability and user experience for ${
+      appstream.name
+    }.\n\n${acceptedChanges.join("\n\n")}\n\nGenerated by Metadata Bot 🤖`;
+
+    // User accepted at least one value, proceed with repo operations
     const repoManager = new RepositoryManager();
     let metadataFiles: MetadataFile[] = [];
     let repoPath = "";
@@ -270,19 +286,19 @@ async function main() {
     try {
       const flathubRepoPath = await repoManager.cloneRepository(
         flathubRepoUrl,
-        `${appId}_flathub`,
+        `${appId}_flathub`
       );
       console.log(`✅ Cloned Flathub repo to: ${flathubRepoPath}`);
 
       console.log("\n🔍 Searching for metadata files in Flathub repo...");
       metadataFiles = await repoManager.findMetadataFiles(
         flathubRepoPath,
-        appId,
+        appId
       );
 
       if (metadataFiles.length > 0) {
         console.log(
-          `✅ Found ${metadataFiles.length} file(s) in Flathub repo:`,
+          `✅ Found ${metadataFiles.length} file(s) in Flathub repo:`
         );
         metadataFiles.forEach((file) => {
           const templateLabel = file.isTemplate ? " [template]" : "";
@@ -298,7 +314,7 @@ async function main() {
       console.log(
         `⚠️  Could not access Flathub repo: ${
           error instanceof Error ? error.message : error
-        }`,
+        }`
       );
     }
 
@@ -307,7 +323,7 @@ async function main() {
       const upstreamRepoUrl = flathubAPI.getRepositoryUrl(appstream);
       if (!upstreamRepoUrl) {
         console.error(
-          "\n❌ No upstream repository URL found in appstream data",
+          "\n❌ No upstream repository URL found in appstream data"
         );
         Deno.exit(1);
       }
@@ -315,14 +331,14 @@ async function main() {
       console.log(`\n📦 Trying upstream repository: ${upstreamRepoUrl}`);
       const upstreamRepoPath = await repoManager.cloneRepository(
         upstreamRepoUrl,
-        `${appId}_upstream`,
+        `${appId}_upstream`
       );
       console.log(`✅ Cloned to: ${upstreamRepoPath}`);
 
       console.log("\n🔍 Searching for metadata files in upstream repo...");
       metadataFiles = await repoManager.findMetadataFiles(
         upstreamRepoPath,
-        appId,
+        appId
       );
 
       if (metadataFiles.length === 0) {
@@ -343,55 +359,56 @@ async function main() {
     console.log(
       `\n📍 Using ${
         isFlathubRepo ? "Flathub" : "upstream"
-      } repository for changes`,
+      } repository for changes`
     );
 
-    // Step 5: Patch files with generated metadata
-    console.log(`\n✏️  Patching files with ${mode}...`);
+    // Step 5: Patch files with accepted metadata
+    console.log(`\n✏️  Patching files with accepted metadata...`);
     const filePatcher = new FilePatcher();
+
+    // Check if we have appstream XML files (prioritize them over .desktop files)
+    const hasAppstreamFiles = metadataFiles.some(
+      (file) => file.type === "metainfo" || file.type === "appdata"
+    );
 
     for (const file of metadataFiles) {
       let patchedContent = file.content;
+      let hasChanges = false;
 
-      if (mode === "all") {
-        // Apply all patches
-        const allContent = generatedContent as {
-          keywords: string[];
-          summary: string;
-          description: string;
-        };
-        patchedContent = filePatcher.patchKeywords(file, allContent.keywords);
-
-        // Update file object with patched content for subsequent patches
-        const tempFile = { ...file, content: patchedContent };
-        patchedContent = filePatcher.patchSummary(tempFile, allContent.summary);
-
-        // Update again for description patch
-        const tempFile2 = { ...file, content: patchedContent };
-        patchedContent = filePatcher.patchDescription(
-          tempFile2,
-          allContent.description,
-        );
-      } else if (mode === "keywords") {
-        patchedContent = filePatcher.patchKeywords(
-          file,
-          generatedContent as string[],
-        );
-      } else if (mode === "summary") {
-        patchedContent = filePatcher.patchSummary(
-          file,
-          generatedContent as string,
-        );
-      } else {
-        // description
-        patchedContent = filePatcher.patchDescription(
-          file,
-          generatedContent as string,
-        );
+      // Apply patches only for accepted metadata
+      if (acceptedMetadata.keywords) {
+        // Skip .desktop files for keywords if we have appstream XML files
+        if (file.type === "desktop" && hasAppstreamFiles) {
+          console.log(
+            `   ⏭️  Skipped keywords for ${file.path} (appstream file exists)`
+          );
+        } else {
+          patchedContent = filePatcher.patchKeywords(file, keywords);
+          hasChanges = true;
+          console.log(`   - Applied keywords to: ${file.path}`);
+        }
       }
 
-      await filePatcher.writeFile(file.path, patchedContent);
-      console.log(`✅ Patched: ${file.path}`);
+      if (acceptedMetadata.summary) {
+        const tempFile = { ...file, content: patchedContent };
+        patchedContent = filePatcher.patchSummary(tempFile, summary);
+        hasChanges = true;
+        console.log(`   - Applied summary to: ${file.path}`);
+      }
+
+      if (acceptedMetadata.description) {
+        const tempFile = { ...file, content: patchedContent };
+        patchedContent = filePatcher.patchDescription(tempFile, description);
+        hasChanges = true;
+        console.log(`   - Applied description to: ${file.path}`);
+      }
+
+      if (hasChanges) {
+        await filePatcher.writeFile(file.path, patchedContent);
+        console.log(`✅ Patched: ${file.path}`);
+      } else {
+        console.log(`⏭️  Skipped: ${file.path} (no accepted changes)`);
+      }
     }
 
     // Step 7: Create branch and commit
@@ -406,10 +423,10 @@ async function main() {
       console.log("\n⚠️  No GitHub or GitLab token configured");
       console.log("Pull request creation skipped");
       console.log(
-        "\nTo create PRs automatically, set GITHUB_TOKEN or GITLAB_TOKEN",
+        "\nTo create PRs automatically, set GITHUB_TOKEN or GITLAB_TOKEN"
       );
       console.log(
-        `\nChanges are ready in branch '${branchName}' at: ${repoPath}`,
+        `\nChanges are ready in branch '${branchName}' at: ${repoPath}`
       );
       console.log("You can manually push and create a PR");
     } else {

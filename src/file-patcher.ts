@@ -96,25 +96,31 @@ export class FilePatcher {
    * @returns Updated content
    */
   private patchKeywordsXml(content: string, keywords: string[]): string {
-    // Generate keywords XML
+    // Detect existing indentation or use 4 spaces as default
+    const existingMatch = content.match(/^(\s*)<keywords>/m);
+    const baseIndent = existingMatch ? existingMatch[1] : "    ";
+    const contentIndent = baseIndent + "    "; // Add 4 more spaces for content
+
+    // Generate keywords XML with proper indentation
     const keywordsXml = keywords
-      .map((k) => `    <keyword>${this.escapeXml(k)}</keyword>`)
+      .map((k) => `${contentIndent}<keyword>${this.escapeXml(k)}</keyword>`)
       .join("\n");
 
-    const keywordsSection = `  <keywords>\n${keywordsXml}\n  </keywords>`;
+    const keywordsSection =
+      `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
 
     // Check if <keywords> section already exists
-    const keywordsRegex = /<keywords>[\s\S]*?<\/keywords>/;
+    const keywordsRegex = /^\s*<keywords>[\s\S]*?<\/keywords>/m;
 
     if (keywordsRegex.test(content)) {
       // Replace existing keywords section
       return content.replace(keywordsRegex, keywordsSection);
     } else {
       // Add keywords section before </component>
-      const componentEndRegex = /(<\/component>)/;
+      const componentEndRegex = /^(\s*)(<\/component>)/m;
 
       if (componentEndRegex.test(content)) {
-        return content.replace(componentEndRegex, `${keywordsSection}\n$1`);
+        return content.replace(componentEndRegex, `${keywordsSection}\n$1$2`);
       } else {
         // If no </component> tag, add at the end
         return content + "\n" + keywordsSection;
@@ -130,26 +136,31 @@ export class FilePatcher {
    */
   private patchSummaryXml(content: string, summary: string): string {
     const escapedSummary = this.escapeXml(summary);
-    const summaryTag = `  <summary>${escapedSummary}</summary>`;
+
+    // Detect existing indentation or use 4 spaces as default
+    const existingMatch = content.match(/^(\s*)<summary>/m);
+    const baseIndent = existingMatch ? existingMatch[1] : "    ";
+
+    const summaryTag = `${baseIndent}<summary>${escapedSummary}</summary>`;
 
     // Check if <summary> tag already exists
-    const summaryRegex = /<summary>.*?<\/summary>/s;
+    const summaryRegex = /^\s*<summary>.*?<\/summary>/ms;
 
     if (summaryRegex.test(content)) {
       // Replace existing summary
       return content.replace(summaryRegex, summaryTag);
     } else {
       // Add summary after <name> tag if it exists
-      const nameRegex = /(<name>.*?<\/name>)/s;
+      const nameRegex = /^(\s*)(<name>.*?<\/name>)/ms;
 
       if (nameRegex.test(content)) {
-        return content.replace(nameRegex, `$1\n${summaryTag}`);
+        return content.replace(nameRegex, `$1$2\n${summaryTag}`);
       } else {
         // If no <name> tag, add after <component> opening tag
-        const componentStartRegex = /(<component[^>]*>)/;
+        const componentStartRegex = /^(\s*)(<component[^>]*>)/m;
 
         if (componentStartRegex.test(content)) {
-          return content.replace(componentStartRegex, `$1\n${summaryTag}`);
+          return content.replace(componentStartRegex, `$1$2\n${summaryTag}`);
         } else {
           // Last resort: add at the beginning
           return summaryTag + "\n" + content;
@@ -161,23 +172,32 @@ export class FilePatcher {
   /**
    * Patch description in a .metainfo.xml or .appdata.xml file
    * @param content - File content
-   * @param description - Description text to add
+   * @param description - Description text to add (should be pre-formatted XML)
    * @returns Updated content
    */
   private patchDescriptionXml(content: string, description: string): string {
-    // Convert plain text description to paragraphs
-    const paragraphs = description
-      .split("\n\n")
-      .map((para) => para.trim())
-      .filter((para) => para.length > 0)
-      .map((para) => `    <p>\n      ${this.escapeXml(para)}\n    </p>`)
+    // Description is already formatted XML from the generator
+    // Detect existing indentation or use 4 spaces as default
+    const existingMatch = content.match(/^(\s*)<description>/m);
+    const baseIndent = existingMatch ? existingMatch[1] : "    ";
+    const contentIndent = baseIndent + "    "; // Add 4 more spaces for content
+
+    // Indent the description properly
+    const indentedDescription = description
+      .split("\n")
+      .map((line) => {
+        const trimmed = line.trim();
+        if (!trimmed) return "";
+        return `${contentIndent}${trimmed}`;
+      })
+      .filter((line) => line.length > 0)
       .join("\n");
 
     const descriptionSection =
-      `  <description>\n${paragraphs}\n  </description>`;
+      `${baseIndent}<description>\n${indentedDescription}\n${baseIndent}</description>`;
 
     // Check if <description> section already exists
-    const descriptionRegex = /<description>[\s\S]*?<\/description>/;
+    const descriptionRegex = /^\s*<description>[\s\S]*?<\/description>/m;
 
     if (descriptionRegex.test(content)) {
       // Replace existing description
