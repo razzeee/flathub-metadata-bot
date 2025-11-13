@@ -17,6 +17,7 @@ import {
 import { FilePatcher } from "./src/file-patcher.ts";
 import { PRManager } from "./src/pr-manager.ts";
 import { load } from "@std/dotenv";
+import { DesktopAppstream } from "./src/generated/flathub-api.ts";
 
 // Load environment variables
 const env = await load();
@@ -127,9 +128,105 @@ async function main() {
     // Step 1: Fetch appstream data
     console.log("📥 Fetching appstream data from Flathub...");
     const flathubAPI = new FlathubAPI();
-    const appstream = await flathubAPI.getAppstream(appId);
+    // appId is guaranteed defined beyond this point
+    const appstream = await flathubAPI.getAppstream(appId!);
     console.log(`✅ Found: ${appstream.name}`);
     console.log(`   Summary: ${appstream.summary}`);
+
+    // Step 1.5: Attempt to read existing metadata from repository for comparison
+    interface ExistingMetadata {
+      summary?: string;
+      description?: string;
+      keywords?: string[];
+    }
+    const existing: ExistingMetadata = {};
+    try {
+      const repoManagerProbe = new RepositoryManager();
+      // Prefer Flathub repo
+      const flathubRepoUrlProbe = flathubAPI.getFlathubRepoUrl(appId!);
+      let probeRepoPath: string | null = null;
+      try {
+        probeRepoPath = await repoManagerProbe.cloneRepository(
+          flathubRepoUrlProbe,
+          `${appId}_probe_flathub`,
+        );
+      } catch (_) {
+        // fallback to upstream if available
+        const upstreamUrl = flathubAPI.getRepositoryUrl(appstream);
+        if (upstreamUrl) {
+          try {
+            probeRepoPath = await repoManagerProbe.cloneRepository(
+              upstreamUrl,
+              `${appId}_probe_upstream`,
+            );
+          } catch (_) {
+            /* ignore */
+          }
+        }
+      }
+      if (probeRepoPath) {
+        const metaFiles = await repoManagerProbe.findMetadataFiles(
+          probeRepoPath,
+          appId!,
+        );
+        // Parse first suitable file(s)
+        for (const f of metaFiles) {
+          const c = f.content;
+          if (!existing.summary) {
+            const m = c.match(/<summary>([\s\S]*?)<\/summary>/);
+            if (m) existing.summary = m[1].trim();
+          }
+          if (!existing.description) {
+            const d = c.match(/<description>([\s\S]*?)<\/description>/);
+            if (d) existing.description = d[1].trim();
+          }
+          if (!existing.keywords) {
+            if (f.type === "desktop") {
+              const kLine = c
+                .split(/\r?\n/)
+                .find((l) => l.startsWith("Keywords="));
+              if (kLine) {
+                const raw = kLine.replace("Keywords=", "").replace(/;$/, "");
+                existing.keywords = raw
+                  .split(";")
+                  .filter(Boolean)
+                  .map((x) => x.trim());
+              }
+            } else {
+              const kBlock = c.match(/<keywords>([\s\S]*?)<\/keywords>/);
+              if (kBlock) {
+                const kw = [
+                  ...kBlock[1].matchAll(/<keyword>([\s\S]*?)<\/keyword>/g),
+                ]
+                  .map((m) => m[1].trim())
+                  .filter(Boolean);
+                if (kw.length) existing.keywords = kw;
+              }
+            }
+          }
+          if (existing.summary && existing.description && existing.keywords) {
+            break; // enough gathered
+          }
+        }
+      }
+      // Fallbacks to appstream if not found
+      if (!existing.summary && appstream.summary) {
+        existing.summary = appstream.summary;
+      }
+      if (
+        !existing.description &&
+        (appstream as DesktopAppstream).description
+      ) {
+        existing.description = (appstream as DesktopAppstream).description ||
+          undefined;
+      }
+    } catch (e) {
+      console.warn(
+        `⚠️  Could not extract existing metadata for comparison: ${
+          e instanceof Error ? e.message : e
+        }`,
+      );
+    }
 
     // Step 2: Generate metadata based on mode
     const metadataGenerator = new MetadataGenerator({
@@ -157,6 +254,12 @@ async function main() {
     if (mode === "all" || mode === "keywords") {
       let keywordDecision = "";
       while (keywordDecision !== "accept" && keywordDecision !== "skip") {
+        console.log("\n🔎 Existing keywords:");
+        if (existing.keywords && existing.keywords.length) {
+          existing.keywords.forEach((k, i) => console.log(`   ${i + 1}. ${k}`));
+        } else {
+          console.log("   (none found)");
+        }
         console.log("\n📝 Generating keywords...");
         keywords = await metadataGenerator.generateKeywords(appstream);
 
@@ -185,6 +288,14 @@ async function main() {
     if (mode === "all" || mode === "summary") {
       let summaryDecision = "";
       while (summaryDecision !== "accept" && summaryDecision !== "skip") {
+        console.log("\n🔎 Existing summary:");
+        if (existing.summary) {
+          console.log(
+            `   "${existing.summary}" (${existing.summary.length} chars)`,
+          );
+        } else {
+          console.log("   (none found)");
+        }
         console.log("\n📝 Generating summary...");
         summary = await metadataGenerator.generateSummary(appstream);
 
@@ -214,6 +325,18 @@ async function main() {
         descriptionDecision !== "accept" &&
         descriptionDecision !== "skip"
       ) {
+        console.log("\n🔎 Existing description (truncated preview):");
+        if (existing.description) {
+          const previewLines = existing.description.split(/\r?\n/).slice(0, 12);
+          previewLines.forEach((line) => console.log(`   ${line}`));
+          if (
+            previewLines.length < existing.description.split(/\r?\n/).length
+          ) {
+            console.log("   ... (truncated) ...");
+          }
+        } else {
+          console.log("   (none found)");
+        }
         console.log("\n📝 Generating description...");
         description = await metadataGenerator.generateDescription(appstream);
 
@@ -286,7 +409,7 @@ async function main() {
 
     // Step 3: Try Flathub repository first
     console.log("\n📦 Checking Flathub repository...");
-    const flathubRepoUrl = flathubAPI.getFlathubRepoUrl(appId);
+    const flathubRepoUrl = flathubAPI.getFlathubRepoUrl(appId!);
     console.log(`   ${flathubRepoUrl}`);
 
     try {
@@ -299,7 +422,7 @@ async function main() {
       console.log("\n🔍 Searching for metadata files in Flathub repo...");
       metadataFiles = await repoManager.findMetadataFiles(
         flathubRepoPath,
-        appId,
+        appId!,
       );
 
       if (metadataFiles.length > 0) {
@@ -344,7 +467,7 @@ async function main() {
       console.log("\n🔍 Searching for metadata files in upstream repo...");
       metadataFiles = await repoManager.findMetadataFiles(
         upstreamRepoPath,
-        appId,
+        appId!,
       );
 
       if (metadataFiles.length === 0) {
@@ -358,7 +481,7 @@ async function main() {
         console.log(`   - ${file.path} (${file.type}${templateLabel})`);
       });
       repoPath = upstreamRepoPath;
-      repoUrl = upstreamRepoUrl;
+      repoUrl = upstreamRepoUrl!; // upstreamRepoUrl guarded above
       isFlathubRepo = false;
     }
 
@@ -442,12 +565,12 @@ async function main() {
         }
 
         // Helper: poll fork readiness
-        async function waitForForkReady(
+        const waitForForkReady = async (
           forkOwner: string,
           repo: string,
           attempts = 10,
           intervalMs = 2000,
-        ) {
+        ) => {
           for (let i = 0; i < attempts; i++) {
             try {
               const meta = await prManager.getGitHubRepoMetadata(
@@ -460,13 +583,13 @@ async function main() {
             await new Promise((r) => setTimeout(r, intervalMs));
           }
           return false;
-        }
+        };
 
         // Helper: push with retries (for transient 503 or not found)
-        async function pushWithRetries(
+        const pushWithRetries = async (
           remote: string,
           maxAttempts = 5,
-        ): Promise<void> {
+        ): Promise<void> => {
           for (let attempt = 1; attempt <= maxAttempts; attempt++) {
             try {
               await repoManager.pushBranch(repoPath, remote, branchName);
@@ -485,7 +608,7 @@ async function main() {
               await new Promise((r) => setTimeout(r, backoff));
             }
           }
-        }
+        };
 
         // Determine default branch for later PR base
         let defaultBranch = "main";
