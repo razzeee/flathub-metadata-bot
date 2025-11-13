@@ -33,14 +33,14 @@ export class MetadataGenerator {
 
     if (config.provider === "ollama") {
       this.model = new ChatOllama({
-        model: config.modelName || "llama3.2:1b",
+        model: config.modelName || "llama3.2:latest",
         baseUrl: config.ollamaBaseUrl || "http://localhost:11435",
         temperature: 0.7,
       });
     } else {
       if (!config.apiKey) {
         throw new Error(
-          "OpenAI API key is required when using OpenAI provider",
+          "OpenAI API key is required when using OpenAI provider"
         );
       }
       this.model = new ChatOpenAI({
@@ -72,7 +72,7 @@ export class MetadataGenerator {
           (hit) =>
             `- ${hit.name}: ${
               hit.keywords?.slice(0, 3).join(", ") || "no keywords"
-            }`,
+            }`
         )
         .join("\n");
 
@@ -136,8 +136,7 @@ export class MetadataGenerator {
       this.getCategories(),
     ]);
 
-    const systemPrompt =
-      `You are an SEO expert specializing in Linux desktop application discoverability.
+    const systemPrompt = `You are an SEO expert specializing in Linux desktop application discoverability.
 Your task is to generate approximately 5 highly effective, SEO-optimized keywords that maximize search visibility.
 
 IMPORTANT: Target 5 keywords. Only go up to 8 if truly necessary. Quality over quantity!
@@ -254,8 +253,7 @@ Return ONLY the comma-separated keywords with NO other text.`;
    * @returns Generated summary string
    */
   async generateSummary(appstream: AppstreamData): Promise<string> {
-    const systemPrompt =
-      `You are an expert at writing app summaries following Flathub's quality guidelines.
+    const systemPrompt = `You are an expert at writing app summaries following Flathub's quality guidelines.
 
 CRITICAL OUTPUT FORMAT:
 - Return ONLY the summary text
@@ -296,8 +294,7 @@ BAD EXAMPLES:
 - "GTK4 chat app" (technical, mentions toolkit)
 - "The best editor" (starts with article)`;
 
-    const userPrompt =
-      `Generate a concise, user-friendly summary for this application:
+    const userPrompt = `Generate a concise, user-friendly summary for this application:
 
 Name: ${appstream.name}
 Current Summary: ${appstream.summary || "N/A"}
@@ -333,8 +330,8 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
       if (
         summary.replace(/\s/g, "") === summary.replace(/\s/g, "").toUpperCase()
       ) {
-        summary = summary.charAt(0).toUpperCase() +
-          summary.slice(1).toLowerCase();
+        summary =
+          summary.charAt(0).toUpperCase() + summary.slice(1).toLowerCase();
       }
 
       // Ensure first character is capitalized (sentence case)
@@ -349,13 +346,13 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
       if (summary.toLowerCase() === appstream.name.toLowerCase()) {
         throw new Error(
           `Generated summary is just the app name ("${summary}"). ` +
-            `The summary should describe what the app does, not repeat its name.`,
+            `The summary should describe what the app does, not repeat its name.`
         );
       }
 
       if (summary.length > 35) {
         console.warn(
-          `  ⚠️  Generated summary is ${summary.length} characters (max 35)`,
+          `  ⚠️  Generated summary is ${summary.length} characters (max 35)`
         );
       }
 
@@ -369,39 +366,74 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
    * Generate a description for an app based on its appstream data
    * Follows Flathub quality guidelines for descriptions
    * @param appstream - Appstream data
-   * @returns Generated description string
+   * @returns Generated description string formatted with proper AppStream XML tags
    */
   async generateDescription(appstream: AppstreamData): Promise<string> {
-    const systemPrompt =
-      `You are an expert at writing app descriptions following Flathub's quality guidelines.
+    const systemPrompt = `You are an expert at writing app descriptions for software stores, following Flathub and AppStream quality guidelines.
 
-CRITICAL REQUIREMENTS:
-- Length: 3-6 lines of text (around 70 characters per line, so ~210-420 characters)
-- Do NOT just repeat or rephrase the summary
-- Focus on app purpose, features, and what makes it unique
-- Avoid super long lists (max 10 items if using bullet points)
-- Use paragraphs instead of endless bullet points when possible
-- Make it informative and engaging
-- Target both technical and non-technical users
+  CRITICAL OUTPUT FORMAT:
+  - Use proper AppStream XML markup: <p>, <ul>, <ol>, <li>, <em>, <code>
+  - NO markdown syntax, NO nested lists, ALL text inside <p> or <li> tags
+  - DO NOT use any attributes in XML tags (no style, type, class, etc.)
+  - Only plain tags are allowed, e.g. <ol><li>...</li></ol> is valid, <ol style="..."> is NOT valid
 
-STRUCTURE:
-1. First paragraph: What the app does and why it's useful
-2. Second paragraph (optional): Key features or unique aspects
-3. Keep it scannable and not overwhelming
+  CRITICAL REQUIREMENTS:
+  - Length: 4-8 paragraphs or a mix of paragraphs and lists
+  - Each paragraph: 2-4 sentences, 100-200 characters
+  - Do NOT repeat or rephrase the summary
+  - Focus on app purpose, features, and unique aspects
+  - Use lists for key features (max 10 items)
+  - Neutral, factual, and informative tone
+  - NO subjective, review-like, or promotional language
+  - Avoid phrases like "excellent choice", "it's easy to see why", "most popular", "best", "perfect for", "highly recommended", "ideal for", "community support"
+  - Do NOT use first-person or second-person language (no "I", "we", "you")
+  - Do NOT make recommendations or personal judgments
+  - Target both technical and non-technical users
+  - Do NOT start every paragraph or sentence with the app name. Only the first paragraph may introduce the app by name; subsequent paragraphs should use pronouns, vary sentence structure, or refer to features and functionality directly.
 
-GOOD EXAMPLE:
-"Apostrophe is a distraction-free Markdown editor designed to help you focus on writing. It features a clean, minimal interface that stays out of your way.
+  CONTENT STRUCTURE:
+  1. First paragraph: What the app does and its main functionality (may use app name)
+  2. Second paragraph or list: Key features and capabilities (do not start with app name)
+  3. Optional: Unique aspects, supported formats, integrations
+  4. Optional: Technical highlights (if relevant)
 
-The editor includes live preview, syntax highlighting, and export to multiple formats including HTML and PDF. It supports GitHub Flavored Markdown and integrates seamlessly with your desktop environment."
+  FORMATTING RULES:
+  - Use <em> for emphasis, <code> for technical terms
+  - Lists: 3-8 items for readability
+  - Mix paragraphs and lists for variety
+  - Each paragraph focused on one main idea
 
-BAD EXAMPLES:
-- Just repeating the summary
-- Extremely technical implementation details
-- Lists with 20+ feature items
-- Too short (1 line only)`;
+  GOOD EXAMPLE:
+  <p>
+    Kodi is a media center application for organizing and playing digital media. It supports a wide range of audio, video, and image formats, providing a unified interface for accessing content.
+  </p>
+  <p>
+    The interface is optimized for televisions and remote controls, making it suitable for home entertainment setups. Multiple platforms are supported, allowing installation on a variety of devices.
+  </p>
+  <ul>
+    <li>Playback of local and network media files</li>
+    <li>Support for add-ons to extend functionality</li>
+    <li>Customizable user interface and themes</li>
+    <li>Library management for movies, TV shows, and music</li>
+    <li>Remote control support</li>
+  </ul>
+  <p>
+    Advanced features include media streaming, subtitles support, and compatibility with a wide range of audio codecs such as <code>MP3</code>, <code>AAC</code>, and <code>FLAC</code>.
+  </p>
 
-    const userPrompt =
-      `Generate an informative, engaging description for this application:
+  BAD EXAMPLES:
+  - Subjective or promotional language ("excellent choice", "most popular", "highly recommended")
+  - First-person or second-person language ("you", "we")
+  - Review-style opinions or recommendations
+  - Plain text without XML tags
+  - Markdown syntax for lists
+  - Lists with more than 10 items
+  - Too short (only 1-2 sentences)
+  - Extremely technical details without context
+  - Every paragraph or sentence starting with the app name
+  - Any XML tag with attributes (e.g. <ol style="...">, <li type="...">)`;
+
+    const userPrompt = `Generate a comprehensive, well-formatted description for this application:
 
 Name: ${appstream.name}
 Summary: ${appstream.summary}
@@ -409,8 +441,8 @@ Current Description: ${getDescription(appstream) || "N/A"}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
 Keywords: ${getKeywords(appstream)?.join(", ") || "N/A"}
 
-Aim for 3-6 lines (~210-420 characters). Make it informative but scannable.
-Return ONLY the description text in plain text format (no markdown, no XML tags).`;
+Create a description with 3-5 paragraphs and/or lists. Use proper AppStream XML tags: <p>, <ul>, <ol>, <li>, <em>, <code>.
+Return ONLY the XML-formatted description with NO surrounding text, explanations, or code blocks.`;
 
     try {
       const messages = [
@@ -419,9 +451,38 @@ Return ONLY the description text in plain text format (no markdown, no XML tags)
       ];
 
       const response = await this.model.invoke(messages);
-      const description = response.content.toString().trim();
+      let description = response.content.toString().trim();
 
-      return description;
+      // Remove common code block markers if present
+      description = description.replace(/^```xml\s*/i, "");
+      description = description.replace(/^```\s*/i, "");
+      description = description.replace(/\s*```$/i, "");
+
+      // Remove any surrounding <description> tags if the LLM added them
+      description = description.replace(/^\s*<description>\s*/i, "");
+      description = description.replace(/\s*<\/description>\s*$/i, "");
+
+      // Validate that we have proper XML tags
+      if (
+        !description.includes("<p>") &&
+        !description.includes("<ul>") &&
+        !description.includes("<ol>")
+      ) {
+        // If no tags found, wrap plain text in paragraph tags
+        console.warn(
+          "  ⚠️  Description missing XML tags, wrapping in <p> tags"
+        );
+
+        // Split by double newlines for paragraphs
+        const paragraphs = description
+          .split(/\n\n+/)
+          .filter((p: string) => p.trim().length > 0);
+        description = paragraphs
+          .map((p: string) => `<p>\n  ${p.trim()}\n</p>`)
+          .join("\n");
+      }
+
+      return description.trim();
     } catch (error) {
       throw this.handleError(error, "description");
     }
@@ -432,7 +493,7 @@ Return ONLY the description text in plain text format (no markdown, no XML tags)
    */
   private async handleError(
     error: unknown,
-    generationType: string,
+    generationType: string
   ): Promise<never> {
     const errorMsg = error instanceof Error ? error.message : String(error);
 
@@ -448,13 +509,13 @@ Return ONLY the description text in plain text format (no markdown, no XML tags)
               `Available models on your system:\n` +
               availableModels.map((m) => `  - ${m}`).join("\n") +
               `\n\nTo use one of these models, set LLM_MODEL in your .env file.\n` +
-              `Or install a new model with: ollama pull llama3.2:1b`,
+              `Or install a new model with: ollama pull llama3.2:1b`
           );
         } else {
           throw new Error(
             `Model '${modelName}' not found.\n\n` +
               `Install it with: ollama pull ${modelName}\n` +
-              `Popular models: llama3.2:1b, llama3.2, mistral, qwen2.5, phi3`,
+              `Popular models: llama3.2:1b, llama3.2, mistral, qwen2.5, phi3`
           );
         }
       } else if (
@@ -469,7 +530,7 @@ Return ONLY the description text in plain text format (no markdown, no XML tags)
             `  1. Start Ollama: ollama serve\n` +
             `  2. Or check if it's running: curl ${
               this.config.ollamaBaseUrl || "http://localhost:11435"
-            }/api/tags`,
+            }/api/tags`
         );
       }
     }
