@@ -422,9 +422,8 @@ async function main() {
     let headOverride: string | undefined;
     if (GITHUB_TOKEN && repoUrl.includes("github.com")) {
       const prManager = new PRManager(GITHUB_TOKEN, GITLAB_TOKEN);
-      const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
-      if (match) {
-        const [, owner, repo] = match;
+      try {
+        const { owner, repo } = prManager.parseGitHubRepoUrl(repoUrl);
         let userLogin = "";
         try {
           userLogin = await prManager.getGitHubUser();
@@ -485,6 +484,12 @@ async function main() {
             console.log("✅ Pushed to fork (fallback)");
           }
         }
+      } catch (parseErr) {
+        console.error(
+          `❌ Failed to parse GitHub repository URL '${repoUrl}': ${
+            parseErr instanceof Error ? parseErr.message : parseErr
+          }`
+        );
       }
     } else if (GITLAB_TOKEN && repoUrl.includes("gitlab.com")) {
       // For GitLab assume direct push rights; if not it will error out.

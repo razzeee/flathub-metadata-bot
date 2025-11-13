@@ -113,13 +113,23 @@ export class PRManager {
    * Parse a GitHub repository URL and return owner & repo (supports dots in repo name)
    */
   parseGitHubRepoUrl(repoUrl: string): { owner: string; repo: string } {
-    // Accept URLs like https://github.com/flathub/net.filebot.FileBot(.git)
-    const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/#]+?)(?:\.git)?$/);
-    if (!match) {
+    // Robust URL parsing instead of regex to avoid truncating at first '.'
+    let url: URL;
+    try {
+      url = new URL(repoUrl);
+    } catch (_) {
       throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
     }
-    const owner = match[1];
-    const repo = match[2];
+    if (url.hostname !== "github.com") {
+      throw new Error(`Not a GitHub URL: ${repoUrl}`);
+    }
+    const parts = url.pathname.split("/").filter(Boolean); // remove empty segments
+    if (parts.length < 2) {
+      throw new Error(`Incomplete GitHub repository path: ${repoUrl}`);
+    }
+    const owner = parts[0];
+    let repo = parts[1];
+    if (repo.endsWith(".git")) repo = repo.slice(0, -4);
     return { owner, repo };
   }
 
