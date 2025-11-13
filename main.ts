@@ -733,26 +733,45 @@ async function main() {
       );
       console.log("You can manually push and create a PR");
     } else {
-      console.log("\n🔄 Creating pull request...");
-      const prManager = new PRManager(GITHUB_TOKEN, GITLAB_TOKEN);
-      // Attempt to detect default branch again (if GitHub) for more accuracy
-      let baseBranch = "main";
-      if (GITHUB_TOKEN && repoUrl.includes("github.com")) {
-        try {
-          const meta = await prManager.getGitHubRepoMetadata(repoUrl);
-          baseBranch = meta.default_branch || "main";
-        } catch (_) {
-          /* fallback to main */
+      // Ask user if they want to create a PR
+      console.log("\n" + "=".repeat(60));
+      const createPRResponse = prompt(
+        "Create pull request now? (y)es or (n)o: ",
+      );
+      console.log("=".repeat(60));
+
+      if (
+        createPRResponse === null ||
+        createPRResponse.toLowerCase() === "n" ||
+        createPRResponse.toLowerCase() === "no"
+      ) {
+        console.log("\n⏭️  Skipping pull request creation");
+        console.log(
+          `\nChanges are ready in branch '${branchName}' at: ${repoPath}`,
+        );
+        console.log("You can manually create a PR when ready");
+      } else {
+        console.log("\n🔄 Creating pull request...");
+        const prManager = new PRManager(GITHUB_TOKEN, GITLAB_TOKEN);
+        // Attempt to detect default branch again (if GitHub) for more accuracy
+        let baseBranch = "main";
+        if (GITHUB_TOKEN && repoUrl.includes("github.com")) {
+          try {
+            const meta = await prManager.getGitHubRepoMetadata(repoUrl);
+            baseBranch = meta.default_branch || "main";
+          } catch (_) {
+            /* fallback to main */
+          }
         }
+        const prUrl = await prManager.createPR(repoUrl, {
+          title: prTitle,
+          description: prDescription,
+          branchName,
+          baseBranch,
+          headOverride,
+        });
+        console.log(`✅ Pull request created: ${prUrl}`);
       }
-      const prUrl = await prManager.createPR(repoUrl, {
-        title: prTitle,
-        description: prDescription,
-        branchName,
-        baseBranch,
-        headOverride,
-      });
-      console.log(`✅ Pull request created: ${prUrl}`);
     }
 
     console.log("\n✨ Done!\n");
