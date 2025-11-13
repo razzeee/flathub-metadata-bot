@@ -32,7 +32,7 @@ export class FilePatcher {
   patchSummary(file: MetadataFile, summary: string): string {
     if (file.type === "desktop") {
       console.warn(
-        "  ⚠️  Skipping desktop file - summaries only added to appstream files",
+        "  ⚠️  Skipping desktop file - summaries only added to appstream files"
       );
       return file.content;
     }
@@ -49,7 +49,7 @@ export class FilePatcher {
   patchDescription(file: MetadataFile, description: string): string {
     if (file.type === "desktop") {
       console.warn(
-        "  ⚠️  Skipping desktop file - descriptions only added to appstream files",
+        "  ⚠️  Skipping desktop file - descriptions only added to appstream files"
       );
       return file.content;
     }
@@ -75,7 +75,7 @@ export class FilePatcher {
       // Add Keywords line after [Desktop Entry] section
       const lines = content.split("\n");
       const desktopEntryIndex = lines.findIndex(
-        (line) => line.trim() === "[Desktop Entry]",
+        (line) => line.trim() === "[Desktop Entry]"
       );
 
       if (desktopEntryIndex !== -1) {
@@ -106,8 +106,7 @@ export class FilePatcher {
       .map((k) => `${contentIndent}<keyword>${this.escapeXml(k)}</keyword>`)
       .join("\n");
 
-    const keywordsSection =
-      `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
+    const keywordsSection = `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
 
     // Check if <keywords> section already exists
     const keywordsRegex = /^\s*<keywords>[\s\S]*?<\/keywords>/m;
@@ -182,8 +181,32 @@ export class FilePatcher {
     const baseIndent = existingMatch ? existingMatch[1] : "    ";
     const contentIndent = baseIndent + "    "; // Add 4 more spaces for content
 
+    // Extract existing disclaimer paragraphs (NOTE: ...) if present so we can preserve them
+    const descriptionRegexCapture = /<description>[\s\S]*?<\/description>/;
+    let disclaimerBlocks: string[] = [];
+    const existingDescriptionBlock = descriptionRegexCapture.exec(content)?.[0];
+    if (existingDescriptionBlock) {
+      // Find paragraphs containing NOTE: - be flexible with opening <p> tag
+      // Match <p>, <p >, <p\n>, etc.
+      const paragraphRegex = /<p(?:\s[^>]*)?>[\s\S]*?<\/p>/gi;
+      const paragraphs = existingDescriptionBlock.match(paragraphRegex) || [];
+      for (const p of paragraphs) {
+        // Check if paragraph contains NOTE: disclaimer (more flexible pattern)
+        if (/NOTE:\s*This\s+application/i.test(p)) {
+          // Extract clean text content and normalize whitespace
+          const textContent = p
+            .replace(/<\/?p(?:\s[^>]*)?>?/gi, "")
+            .replace(/\s+/g, " ")
+            .trim();
+          disclaimerBlocks.push(textContent);
+        }
+      }
+      // De-duplicate identical disclaimer paragraphs
+      disclaimerBlocks = Array.from(new Set(disclaimerBlocks));
+    }
+
     // Indent the description properly
-    const indentedDescription = description
+    let indentedDescription = description
       .split("\n")
       .map((line) => {
         const trimmed = line.trim();
@@ -193,14 +216,29 @@ export class FilePatcher {
       .filter((line) => line.length > 0)
       .join("\n");
 
-    const descriptionSection =
-      `${baseIndent}<description>\n${indentedDescription}\n${baseIndent}</description>`;
+    // Append disclaimers at end if not already included (preserve at all cost)
+    if (disclaimerBlocks.length > 0) {
+      for (const block of disclaimerBlocks) {
+        // Check if disclaimer text is already present anywhere in description
+        const normalizedBlock = block.replace(/\s+/g, " ").toLowerCase();
+        const normalizedDesc = indentedDescription
+          .replace(/\s+/g, " ")
+          .toLowerCase();
+        if (!normalizedDesc.includes(normalizedBlock)) {
+          // Wrap in <p> tags and indent properly
+          const disclaimerParagraph = `${contentIndent}<p>\n${contentIndent}  ${block}\n${contentIndent}</p>`;
+          indentedDescription += `\n${disclaimerParagraph}`;
+        }
+      }
+    }
+
+    const descriptionSection = `${baseIndent}<description>\n${indentedDescription}\n${baseIndent}</description>`;
 
     // Check if <description> section already exists
     const descriptionRegex = /^\s*<description>[\s\S]*?<\/description>/m;
 
     if (descriptionRegex.test(content)) {
-      // Replace existing description
+      // Replace existing description while preserving disclaimers (already appended above)
       return content.replace(descriptionRegex, descriptionSection);
     } else {
       // Add description after <summary> tag if it exists
@@ -221,7 +259,7 @@ export class FilePatcher {
           if (componentEndRegex.test(content)) {
             return content.replace(
               componentEndRegex,
-              `${descriptionSection}\n$1`,
+              `${descriptionSection}\n$1`
             );
           } else {
             return content + "\n" + descriptionSection;

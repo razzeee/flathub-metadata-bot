@@ -8,6 +8,8 @@ export interface PROptions {
   description: string;
   branchName: string;
   baseBranch?: string;
+  /** Optional override for head reference (e.g. user:branch when from fork) */
+  headOverride?: string;
 }
 
 export class PRManager {
@@ -30,13 +32,7 @@ export class PRManager {
       throw new Error("GitHub token not configured");
     }
 
-    // Extract owner and repo from URL
-    const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
-    if (!match) {
-      throw new Error("Invalid GitHub repository URL");
-    }
-
-    const [, owner, repo] = match;
+    const { owner, repo } = this.parseGitHubRepoUrl(repoUrl);
 
     // Create PR using GitHub API
     const apiUrl = `https://api.github.com/repos/${owner}/${repo}/pulls`;
@@ -44,7 +40,7 @@ export class PRManager {
     const body = {
       title: options.title,
       body: options.description,
-      head: options.branchName,
+      head: options.headOverride || options.branchName,
       base: options.baseBranch || "main",
     };
 
@@ -61,12 +57,70 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitHub PR: ${response.status} ${error}`,
+        `Failed to create GitHub PR: ${response.status} ${error}`
       );
     }
 
     const data = await response.json();
     return data.html_url;
+  }
+
+  /**
+   * Get authenticated GitHub user login
+   */
+  async getGitHubUser(): Promise<string> {
+    if (!this.githubToken) throw new Error("GitHub token not configured");
+    const resp = await fetch("https://api.github.com/user", {
+      headers: {
+        Authorization: `token ${this.githubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (!resp.ok) {
+      throw new Error(
+        `Failed to fetch user: ${resp.status} ${await resp.text()}`
+      );
+    }
+    const data = await resp.json();
+    return data.login;
+  }
+
+  /**
+   * Fork a GitHub repository (if not already forked)
+   * @returns fork owner's login
+   */
+  async forkGitHubRepo(repoUrl: string): Promise<string> {
+    if (!this.githubToken) throw new Error("GitHub token not configured");
+    const { owner, repo } = this.parseGitHubRepoUrl(repoUrl);
+
+    const apiUrl = `https://api.github.com/repos/${owner}/${repo}/forks`;
+    const resp = await fetch(apiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `token ${this.githubToken}`,
+        Accept: "application/vnd.github.v3+json",
+      },
+    });
+    if (!resp.ok) {
+      const txt = await resp.text();
+      throw new Error(`Failed to fork repo: ${resp.status} ${txt}`);
+    }
+    const data = await resp.json();
+    return data.owner?.login || "";
+  }
+
+  /**
+   * Parse a GitHub repository URL and return owner & repo (supports dots in repo name)
+   */
+  parseGitHubRepoUrl(repoUrl: string): { owner: string; repo: string } {
+    // Accept URLs like https://github.com/flathub/net.filebot.FileBot(.git)
+    const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/#]+?)(?:\.git)?$/);
+    if (!match) {
+      throw new Error(`Invalid GitHub repository URL: ${repoUrl}`);
+    }
+    const owner = match[1];
+    const repo = match[2];
+    return { owner, repo };
   }
 
   /**
@@ -89,8 +143,7 @@ export class PRManager {
     const projectPath = encodeURIComponent(match[1]);
 
     // Create MR using GitLab API
-    const apiUrl =
-      `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests`;
+    const apiUrl = `https://gitlab.com/api/v4/projects/${projectPath}/merge_requests`;
 
     const body = {
       source_branch: options.branchName,
@@ -111,7 +164,7 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitLab MR: ${response.status} ${error}`,
+        `Failed to create GitLab MR: ${response.status} ${error}`
       );
     }
 

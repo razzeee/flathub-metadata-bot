@@ -42,11 +42,7 @@ Exec=test-app
     const result = patcher.patchKeywords(file, keywords);
 
     assertStringIncludes(result, "Keywords=new;keywords;");
-    assertEquals(
-      result.match(/Keywords=/g)?.length,
-      1,
-      "Should have exactly one Keywords line"
-    );
+    assertEquals(result.match(/Keywords=/g)?.length, 1);
   }
 );
 
@@ -108,7 +104,7 @@ Name=Test App
   const summary = "This should not be added";
   const result = patcher.patchSummary(file, summary);
 
-  assertEquals(result, originalContent, "Content should remain unchanged");
+  assertEquals(result, originalContent);
 });
 
 Deno.test("FilePatcher - patchDescription with XML-formatted content", () => {
@@ -150,16 +146,36 @@ Deno.test("FilePatcher - patchDescription with XML-formatted content", () => {
   assertStringIncludes(result, "</description>");
 
   // Verify tags are NOT escaped
-  assertEquals(
-    result.includes("&lt;p&gt;"),
-    false,
-    "XML tags should not be escaped"
+  assertEquals(result.includes("&lt;p&gt;"), false);
+  assertEquals(result.includes("&lt;ul&gt;"), false);
+});
+
+Deno.test("FilePatcher - preserves NOTE disclaimer", () => {
+  const patcher = new FilePatcher();
+  const original = `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>net.filebot.FileBot</id>
+  <name>FileBot</name>
+  <summary>Ultimate TV and movie renamer</summary>
+   <description>
+    <p>FileBot is the ultimate tool for renaming and organizing your movies, TV shows and Anime. Match and rename media files against online databases, download artwork and cover images, fetch subtitles, write metadata, and more, all at once in matter of seconds. It's smart and just works.</p>
+    <p>NOTE: This application is not verified by, affiliated with, or supported by Point Planck Limited.</p>
+  </description>
+</component>
+`;
+  const file: MetadataFile = {
+    path: "/test/app.metainfo.xml",
+    type: "metainfo",
+    content: original,
+  };
+  const newDescription = `<p>Updated description body with new content.</p>`;
+  const result = patcher.patchDescription(file, newDescription);
+  // Ensure disclaimer preserved
+  assertStringIncludes(
+    result,
+    "NOTE: This application is not verified by, affiliated with, or supported by Point Planck Limited."
   );
-  assertEquals(
-    result.includes("&lt;ul&gt;"),
-    false,
-    "XML tags should not be escaped"
-  );
+  assertStringIncludes(result, "Updated description body with new content.");
 });
 
 Deno.test("FilePatcher - patchDescription skips desktop files", () => {
@@ -176,5 +192,5 @@ Name=Test App
   const description = "This should not be added";
   const result = patcher.patchDescription(file, description);
 
-  assertEquals(result, originalContent, "Content should remain unchanged");
+  assertEquals(result, originalContent);
 });

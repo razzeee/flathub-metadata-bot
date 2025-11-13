@@ -418,7 +418,89 @@ async function main() {
     await repoManager.commitChanges(repoPath, commitMessage);
     console.log(`✅ Created branch: ${branchName}`);
 
-    // Step 8: Create pull request
+    // Step 8: Push branch (handle fork if necessary for GitHub)
+    let headOverride: string | undefined;
+    if (GITHUB_TOKEN && repoUrl.includes("github.com")) {
+      const prManager = new PRManager(GITHUB_TOKEN, GITLAB_TOKEN);
+      const match = repoUrl.match(/github\.com\/([^\/]+)\/([^\/\.]+)/);
+      if (match) {
+        const [, owner, repo] = match;
+        let userLogin = "";
+        try {
+          userLogin = await prManager.getGitHubUser();
+        } catch (e) {
+          console.warn(
+            `⚠️  Could not determine GitHub user: ${
+              e instanceof Error ? e.message : e
+            }`
+          );
+        }
+        // If user is not the owner, fork first
+        if (userLogin && userLogin !== owner) {
+          console.log(
+            "\n🔀 Forking upstream repository (no direct push rights)..."
+          );
+          let forkOwner = userLogin;
+          try {
+            forkOwner = (await prManager.forkGitHubRepo(repoUrl)) || userLogin;
+            console.log(`✅ Fork available under: ${forkOwner}`);
+          } catch (forkErr) {
+            console.error(
+              `❌ Fork failed: ${
+                forkErr instanceof Error ? forkErr.message : forkErr
+              }`
+            );
+            throw forkErr;
+          }
+          const forkRemoteUrl = `https://github.com/${forkOwner}/${repo}.git`;
+          await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+          console.log("🚚 Pushing branch to fork remote...");
+          await repoManager.pushBranch(repoPath, "fork", branchName);
+          console.log("✅ Pushed to fork");
+          headOverride = `${forkOwner}:${branchName}`;
+        } else {
+          // Try pushing directly
+          try {
+            console.log("🚚 Pushing branch to origin remote...");
+            await repoManager.pushBranch(repoPath, "origin", branchName);
+            console.log("✅ Pushed to origin");
+          } catch {
+            console.warn("⚠️  Direct push failed, attempting fork fallback...");
+            let forkOwnerFallback = userLogin || "";
+            try {
+              forkOwnerFallback =
+                (await prManager.forkGitHubRepo(repoUrl)) || forkOwnerFallback;
+              console.log(`✅ Fork created: ${forkOwnerFallback}`);
+            } catch (forkErr) {
+              throw new Error(
+                `Failed to push branch & fork: ${
+                  forkErr instanceof Error ? forkErr.message : forkErr
+                }`
+              );
+            }
+            const forkRemoteUrl = `https://github.com/${forkOwnerFallback}/${repo}.git`;
+            await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+            await repoManager.pushBranch(repoPath, "fork", branchName);
+            headOverride = `${forkOwnerFallback}:${branchName}`;
+            console.log("✅ Pushed to fork (fallback)");
+          }
+        }
+      }
+    } else if (GITLAB_TOKEN && repoUrl.includes("gitlab.com")) {
+      // For GitLab assume direct push rights; if not it will error out.
+      try {
+        console.log("🚚 Pushing branch to origin remote (GitLab)...");
+        await repoManager.pushBranch(repoPath, "origin", branchName);
+        console.log("✅ Pushed to origin");
+      } catch (e) {
+        console.error(
+          `❌ Failed to push to GitLab: ${e instanceof Error ? e.message : e}`
+        );
+        throw e;
+      }
+    }
+
+    // Step 9: Create pull request
     if (!GITHUB_TOKEN && !GITLAB_TOKEN) {
       console.log("\n⚠️  No GitHub or GitLab token configured");
       console.log("Pull request creation skipped");
@@ -432,14 +514,13 @@ async function main() {
     } else {
       console.log("\n🔄 Creating pull request...");
       const prManager = new PRManager(GITHUB_TOKEN, GITLAB_TOKEN);
-
       const prUrl = await prManager.createPR(repoUrl, {
         title: prTitle,
         description: prDescription,
         branchName,
         baseBranch: "main",
+        headOverride,
       });
-
       console.log(`✅ Pull request created: ${prUrl}`);
     }
 

@@ -60,7 +60,7 @@ export class RepositoryManager {
    */
   async findMetadataFiles(
     repoPath: string,
-    appId: string,
+    appId: string
   ): Promise<MetadataFile[]> {
     const files: MetadataFile[] = [];
 
@@ -177,6 +177,51 @@ export class RepositoryManager {
     if (code !== 0) {
       const errorMsg = new TextDecoder().decode(stderr);
       throw new Error(`Failed to commit changes: ${errorMsg}`);
+    }
+  }
+
+  /**
+   * Add a git remote to the repository
+   * @param repoPath - Path to repository
+   * @param name - Remote name (e.g. 'fork')
+   * @param url - Remote URL
+   */
+  async addRemote(repoPath: string, name: string, url: string): Promise<void> {
+    const command = new Deno.Command("git", {
+      args: ["-C", repoPath, "remote", "add", name, url],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { code, stderr } = await command.output();
+    if (code !== 0) {
+      const errorMsg = new TextDecoder().decode(stderr);
+      // Ignore if remote already exists
+      if (!/already exists/.test(errorMsg)) {
+        throw new Error(`Failed to add remote '${name}': ${errorMsg}`);
+      }
+    }
+  }
+
+  /**
+   * Push a branch to a remote
+   * @param repoPath - Path to repository
+   * @param remote - Remote name (origin, fork, etc.)
+   * @param branchName - Branch name to push
+   */
+  async pushBranch(
+    repoPath: string,
+    remote: string,
+    branchName: string
+  ): Promise<void> {
+    const command = new Deno.Command("git", {
+      args: ["-C", repoPath, "push", remote, branchName],
+      stdout: "piped",
+      stderr: "piped",
+    });
+    const { code, stderr } = await command.output();
+    if (code !== 0) {
+      const errorMsg = new TextDecoder().decode(stderr);
+      throw new Error(`Failed to push branch '${branchName}': ${errorMsg}`);
     }
   }
 }
