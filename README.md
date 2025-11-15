@@ -11,7 +11,10 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
   - **Descriptions** - Detailed app information (following Flathub guidelines)
 - 📦 Clones source repositories and finds metadata files
 - ✏️ Patches `.desktop` and appstream files (`.metainfo.xml`, `.appdata.xml`)
-- 🔄 Creates pull requests on GitHub and GitLab automatically
+- 🔄 Creates pull requests on **multiple platforms**:
+  - GitHub
+  - GitLab (gitlab.com and custom instances like gitlab.gnome.org, invent.kde.org)
+  - Codeberg
 - 🏠 **Supports local Ollama** - No API costs, full privacy!
 
 ## Prerequisites
@@ -21,8 +24,14 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
   - OpenAI API key, **or**
   - Local [Ollama](https://ollama.ai/) installation
 - (Optional) GitHub Personal Access Token for creating PRs
-- (Optional) GitLab Personal Access Token for creating MRs
+- (Optional) GitLab Personal Access Tokens - **separate token needed for each GitLab instance**:
+  - `GITLAB_TOKEN` for gitlab.com
+  - `GITLAB_GNOME_TOKEN` for gitlab.gnome.org
+  - `GITLAB_KDE_TOKEN` for invent.kde.org
+  - `GITLAB_FREEDESKTOP_TOKEN` for gitlab.freedesktop.org
+- (Optional) Codeberg Token for creating PRs on Codeberg
 - Git installed on your system
+  about supported platforms and why separate GitLab tokens are needed.
 
 ## Installation
 
@@ -39,7 +48,12 @@ cp .env.example .env
 ```env
 OPENAI_API_KEY=sk-...
 GITHUB_TOKEN=ghp_...
+# GitLab tokens - separate token for each instance
 GITLAB_TOKEN=glpat-...
+GITLAB_GNOME_TOKEN=glpat-...
+GITLAB_KDE_TOKEN=...
+GITLAB_FREEDESKTOP_TOKEN=glpat-...
+CODEBERG_TOKEN=your_codeberg_token_here
 ```
 
 ## Usage
@@ -170,7 +184,13 @@ metadata-bot/
   - Ollama: `llama3.2:1b` (default), `llama3.2`, `mistral`, `qwen2.5`, etc.
 - `OLLAMA_BASE_URL` (optional) - Ollama server URL (default: `http://localhost:11435`)
 - `GITHUB_TOKEN` (optional) - GitHub Personal Access Token with `repo` scope
-- `GITLAB_TOKEN` (optional) - GitLab Personal Access Token with `api` scope
+- `GITLAB_TOKEN` (optional) - GitLab.com Personal Access Token with `api` scope
+- `GITLAB_GNOME_TOKEN` (optional) - gitlab.gnome.org Personal Access Token with `api` scope
+- `GITLAB_KDE_TOKEN` (optional) - invent.kde.org Personal Access Token with `api` scope
+- `GITLAB_FREEDESKTOP_TOKEN` (optional) - gitlab.freedesktop.org Personal Access Token with `api` scope
+- `CODEBERG_TOKEN` (optional) - Codeberg Token with `repo` scope
+
+**Note**: Each GitLab instance requires its own token because they are separate installations with independent authentication systems.
 
 ### Using Local Ollama
 
