@@ -19,8 +19,10 @@ Deno.test(
   }
 );
 
-Deno.test("RepositoryManager - findMetadataFiles returns correct types", () => {
+Deno.test("RepositoryManager - findMetadataFiles returns correct types", async () => {
   const manager = new RepositoryManager();
+  // Give the constructor's async directory creation time to complete
+  await new Promise((resolve) => setTimeout(resolve, 100));
 
   // Test file type detection logic
   const testCases = [
@@ -76,7 +78,7 @@ Deno.test(
   }
 );
 
-Deno.test("RepositoryManager - template file detection", () => {
+Deno.test("RepositoryManager - template file detection", async () => {
   // Test that .in files are properly marked as templates
   const templateFilename = "app.desktop.in";
   const isTemplate = templateFilename.endsWith(".in");
