@@ -194,10 +194,21 @@ export class RepositoryManager {
    * @param repoPath - Path to repository
    * @param name - Remote name (e.g. 'fork')
    * @param url - Remote URL
+   * @param token - Optional authentication token to inject into URL
    */
-  async addRemote(repoPath: string, name: string, url: string): Promise<void> {
+  async addRemote(
+    repoPath: string,
+    name: string,
+    url: string,
+    token?: string,
+  ): Promise<void> {
+    let remoteUrl = url;
+    if (token) {
+      // Inject token into URL for authentication
+      remoteUrl = url.replace(/^https:\/\//, `https://oauth2:${token}@`);
+    }
     const command = new Deno.Command("git", {
-      args: ["-C", repoPath, "remote", "add", name, url],
+      args: ["-C", repoPath, "remote", "add", name, remoteUrl],
       stdout: "piped",
       stderr: "piped",
     });
@@ -216,12 +227,39 @@ export class RepositoryManager {
    * @param repoPath - Path to repository
    * @param remote - Remote name (origin, fork, etc.)
    * @param branchName - Branch name to push
+   * @param token - Optional authentication token (will update remote URL if provided)
    */
   async pushBranch(
     repoPath: string,
     remote: string,
     branchName: string,
+    token?: string,
   ): Promise<void> {
+    // If token provided, update the remote URL to include authentication
+    if (token) {
+      // Get current remote URL
+      const getUrlCmd = new Deno.Command("git", {
+        args: ["-C", repoPath, "remote", "get-url", remote],
+        stdout: "piped",
+        stderr: "piped",
+      });
+      const { stdout } = await getUrlCmd.output();
+      const currentUrl = new TextDecoder().decode(stdout).trim();
+
+      // Inject token into URL (remove existing auth if present)
+      const urlWithToken = currentUrl
+        .replace(/^https:\/\/[^@]*@/, "https://")
+        .replace(/^https:\/\//, `https://oauth2:${token}@`);
+
+      // Update remote URL
+      const setUrlCmd = new Deno.Command("git", {
+        args: ["-C", repoPath, "remote", "set-url", remote, urlWithToken],
+        stdout: "piped",
+        stderr: "piped",
+      });
+      await setUrlCmd.output();
+    }
+
     const command = new Deno.Command("git", {
       args: ["-C", repoPath, "push", remote, branchName],
       stdout: "piped",

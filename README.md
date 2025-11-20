@@ -192,6 +192,24 @@ metadata-bot/
 
 **Note**: Each GitLab instance requires its own token because they are separate installations with independent authentication systems.
 
+#### Required Token Scopes
+
+- **GitHub**: `repo` scope is required for:
+  - Reading repository metadata
+  - Forking repositories
+  - Creating pull requests
+
+- **GitLab** (all instances): `api` scope is required for:
+  - Reading user information
+  - Forking repositories
+  - Reading project metadata
+  - Creating merge requests
+
+- **Codeberg**: `repo` scope is required for:
+  - Reading repository metadata
+  - Forking repositories
+  - Creating pull requests
+
 ### Using Local Ollama
 
 To use a local Ollama instance instead of OpenAI:

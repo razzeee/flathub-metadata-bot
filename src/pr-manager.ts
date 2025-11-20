@@ -29,7 +29,7 @@ export class PRManager {
   constructor(
     githubToken?: string,
     gitlabTokens?: Map<string, string> | string,
-    codebergToken?: string
+    codebergToken?: string,
   ) {
     this.githubToken = githubToken;
     // Support both Map and single string for backwards compatibility
@@ -84,7 +84,7 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitHub PR: ${response.status} ${error}`
+        `Failed to create GitHub PR: ${response.status} ${error}`,
       );
     }
 
@@ -105,7 +105,7 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch user: ${resp.status} ${await resp.text()}`
+        `Failed to fetch user: ${resp.status} ${await resp.text()}`,
       );
     }
     const data = await resp.json();
@@ -172,13 +172,13 @@ export class PRManager {
       }
 
       throw new Error(
-        `Unsupported git hosting platform: ${hostname}. Supported platforms: GitHub, GitLab, Codeberg`
+        `Unsupported git hosting platform: ${hostname}. Supported platforms: GitHub, GitLab, Codeberg`,
       );
     } catch (error) {
       throw new Error(
         `Failed to parse repository URL: ${
           error instanceof Error ? error.message : String(error)
-        }`
+        }`,
       );
     }
   }
@@ -197,7 +197,7 @@ export class PRManager {
 
   /** Fetch repository metadata (e.g. default branch) */
   async getGitHubRepoMetadata(
-    repoUrl: string
+    repoUrl: string,
   ): Promise<{ default_branch: string }> {
     if (!this.githubToken) throw new Error("GitHub token not configured");
     const { owner, repo } = this.parseGitHubRepoUrl(repoUrl);
@@ -210,7 +210,7 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch repo metadata: ${resp.status} ${await resp.text()}`
+        `Failed to fetch repo metadata: ${resp.status} ${await resp.text()}`,
       );
     }
     const data = await resp.json();
@@ -233,7 +233,7 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch GitLab user: ${resp.status} ${await resp.text()}`
+        `Failed to fetch GitLab user: ${resp.status} ${await resp.text()}`,
       );
     }
     const data = await resp.json();
@@ -255,6 +255,28 @@ export class PRManager {
       throw new Error(`GitLab token not configured for ${hostname}`);
     }
 
+    // First, get the current user to check if fork already exists
+    const userLogin = await this.getGitLabUser(hostname);
+
+    // Check if fork already exists
+    const forkPath = encodeURIComponent(`${userLogin}/${repo}`);
+    const checkForkUrl = `https://${hostname}/api/v4/projects/${forkPath}`;
+    const checkResp = await fetch(checkForkUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    if (checkResp.ok) {
+      // Fork already exists
+      const forkData = await checkResp.json();
+      // Verify it's actually a fork of the target project
+      if (forkData.forked_from_project) {
+        return userLogin;
+      }
+    }
+
+    // Fork doesn't exist, create it
     const projectPath = encodeURIComponent(`${owner}/${repo}`);
     const apiUrl = `https://${hostname}/api/v4/projects/${projectPath}/fork`;
 
@@ -264,19 +286,25 @@ export class PRManager {
         Authorization: `Bearer ${token}`,
       },
     });
+
     if (!resp.ok) {
       const txt = await resp.text();
+      // If it's a 409 (already exists), that's actually OK - just return the user
+      if (resp.status === 409) {
+        return userLogin;
+      }
       throw new Error(`Failed to fork GitLab repo: ${resp.status} ${txt}`);
     }
+
     const data = await resp.json();
-    return data.owner?.username || data.namespace?.path || "";
+    return data.owner?.username || data.namespace?.path || userLogin;
   }
 
   /**
    * Fetch GitLab repository metadata (e.g. default branch)
    */
   async getGitLabRepoMetadata(
-    repoUrl: string
+    repoUrl: string,
   ): Promise<{ default_branch: string }> {
     const { hostname, owner, repo } = this.parseRepoUrl(repoUrl);
     if (!hostname.includes("gitlab")) {
@@ -298,9 +326,8 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch GitLab repo metadata: ${
-          resp.status
-        } ${await resp.text()}`
+        `Failed to fetch GitLab repo metadata: ${resp.status} ${await resp
+          .text()}`,
       );
     }
     const data = await resp.json();
@@ -324,13 +351,97 @@ export class PRManager {
       throw new Error(`GitLab token not configured for ${hostname}`);
     }
 
-    const projectPath = encodeURIComponent(`${owner}/${repo}`);
+    // Parse headOverride to determine if this is from a fork
+    let sourceProjectPath: string;
+    let sourceBranch: string;
+    let targetProjectPath: string;
 
-    // Create MR using GitLab API (works for any GitLab instance)
-    const apiUrl = `https://${hostname}/api/v4/projects/${projectPath}/merge_requests`;
+    if (options.headOverride) {
+      // Format: "forkOwner:branchName"
+      const [forkOwner, branch] = options.headOverride.split(":");
+      sourceProjectPath = encodeURIComponent(`${forkOwner}/${repo}`);
+      sourceBranch = branch;
+      targetProjectPath = encodeURIComponent(`${owner}/${repo}`);
+    } else {
+      // No fork, same project
+      sourceProjectPath = encodeURIComponent(`${owner}/${repo}`);
+      sourceBranch = options.branchName;
+      targetProjectPath = sourceProjectPath;
+    }
 
-    const body = {
-      source_branch: options.branchName,
+    // Get the source project ID (from fork)
+    const sourceProjectApiUrl =
+      `https://${hostname}/api/v4/projects/${sourceProjectPath}`;
+    const sourceResp = await fetch(sourceProjectApiUrl, {
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+    if (!sourceResp.ok) {
+      throw new Error(
+        `Failed to fetch source project: ${sourceResp.status} ${await sourceResp
+          .text()}`,
+      );
+    }
+    const sourceProject = await sourceResp.json();
+    const sourceProjectId = sourceProject.id;
+
+    // If creating from fork, we need the target project ID
+    if (options.headOverride) {
+      // Get target project ID
+      const targetProjectApiUrl =
+        `https://${hostname}/api/v4/projects/${targetProjectPath}`;
+      const targetResp = await fetch(targetProjectApiUrl, {
+        headers: {
+          Authorization: `Bearer ${token}`,
+        },
+      });
+      if (!targetResp.ok) {
+        throw new Error(
+          `Failed to fetch target project: ${targetResp.status} ${await targetResp
+            .text()}`,
+        );
+      }
+      const targetProject = await targetResp.json();
+
+      // Create MR from fork to upstream
+      const forkMRBody = {
+        source_branch: sourceBranch,
+        target_branch: options.baseBranch || "main",
+        title: options.title,
+        description: options.description,
+        target_project_id: targetProject.id,
+      };
+
+      // Create MR from the source (fork) project
+      const forkMRUrl =
+        `https://${hostname}/api/v4/projects/${sourceProjectId}/merge_requests`;
+      const response = await fetch(forkMRUrl, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(forkMRBody),
+      });
+
+      if (!response.ok) {
+        const error = await response.text();
+        throw new Error(
+          `Failed to create GitLab MR from fork: ${response.status} ${error}`,
+        );
+      }
+
+      const data = await response.json();
+      return data.web_url;
+    }
+
+    // Direct MR (no fork) - create in the same project
+    const apiUrl =
+      `https://${hostname}/api/v4/projects/${targetProjectPath}/merge_requests`;
+
+    const directMRBody = {
+      source_branch: sourceBranch,
       target_branch: options.baseBranch || "main",
       title: options.title,
       description: options.description,
@@ -342,13 +453,13 @@ export class PRManager {
         Authorization: `Bearer ${token}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify(body),
+      body: JSON.stringify(directMRBody),
     });
 
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create GitLab MR: ${response.status} ${error}`
+        `Failed to create GitLab MR: ${response.status} ${error}`,
       );
     }
 
@@ -368,7 +479,7 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch Codeberg user: ${resp.status} ${await resp.text()}`
+        `Failed to fetch Codeberg user: ${resp.status} ${await resp.text()}`,
       );
     }
     const data = await resp.json();
@@ -404,7 +515,7 @@ export class PRManager {
    * Fetch Codeberg repository metadata (e.g. default branch)
    */
   async getCodebergRepoMetadata(
-    repoUrl: string
+    repoUrl: string,
   ): Promise<{ default_branch: string }> {
     if (!this.codebergToken) {
       throw new Error("Codeberg token not configured");
@@ -418,9 +529,8 @@ export class PRManager {
     });
     if (!resp.ok) {
       throw new Error(
-        `Failed to fetch Codeberg repo metadata: ${
-          resp.status
-        } ${await resp.text()}`
+        `Failed to fetch Codeberg repo metadata: ${resp.status} ${await resp
+          .text()}`,
       );
     }
     const data = await resp.json();
@@ -462,7 +572,7 @@ export class PRManager {
     if (!response.ok) {
       const error = await response.text();
       throw new Error(
-        `Failed to create Codeberg PR: ${response.status} ${error}`
+        `Failed to create Codeberg PR: ${response.status} ${error}`,
       );
     }
 
