@@ -511,21 +511,64 @@ async function main() {
       (file) => file.type === "metainfo" || file.type === "appdata",
     );
 
+    // For keywords: determine where they already exist to know where to patch
+    let keywordLocations: ("desktop" | "metainfo" | "appdata")[] = [];
+    if (acceptedMetadata.keywords) {
+      keywordLocations = metadataFiles
+        .filter((file) => filePatcher.hasKeywords(file))
+        .map((file) => file.type);
+
+      if (keywordLocations.length > 0) {
+        console.log(
+          `\n🔍 Found existing keywords in: ${
+            keywordLocations
+              .map((t) => t === "desktop" ? ".desktop" : `.${t}.xml`)
+              .join(", ")
+          }`,
+        );
+      } else {
+        // No existing keywords - prefer XML files if available
+        console.log("\n🔍 No existing keywords found");
+      }
+    }
+
     for (const file of metadataFiles) {
       let patchedContent = file.content;
       let hasChanges = false;
 
       // Apply patches only for accepted metadata
       if (acceptedMetadata.keywords) {
-        // Skip .desktop files for keywords if we have appstream XML files
-        if (file.type === "desktop" && hasAppstreamFiles) {
-          console.log(
-            `   ⏭️  Skipped keywords for ${file.path} (appstream file exists)`,
-          );
+        let shouldPatchKeywords = false;
+
+        if (keywordLocations.length > 0) {
+          // Keywords exist somewhere - patch only where they already exist
+          shouldPatchKeywords = keywordLocations.includes(file.type);
+          if (!shouldPatchKeywords) {
+            console.log(
+              `   ⏭️  Skipped keywords for ${file.path} (keywords exist elsewhere)`,
+            );
+          }
         } else {
+          // No existing keywords - prefer XML files, fallback to .desktop
+          if (hasAppstreamFiles) {
+            // Only patch XML files if they exist
+            shouldPatchKeywords = file.type === "metainfo" ||
+              file.type === "appdata";
+            if (file.type === "desktop") {
+              console.log(
+                `   ⏭️  Skipped keywords for ${file.path} (appstream file exists)`,
+              );
+            }
+          } else {
+            // No XML files, patch .desktop file
+            shouldPatchKeywords = true;
+          }
+        }
+
+        if (shouldPatchKeywords) {
           patchedContent = filePatcher.patchKeywords(file, keywords);
           hasChanges = true;
-          console.log(`   - Applied keywords to: ${file.path}`);
+          console.log(`   ✓ Applied keywords to: ${file.path}`);
         }
       }
 

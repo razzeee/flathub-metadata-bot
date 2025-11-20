@@ -25,7 +25,7 @@ Exec=test-app
 });
 
 Deno.test(
-  "FilePatcher - patchKeywords replaces existing keywords in desktop file",
+  "FilePatcher - patchKeywords merges keywords in desktop file when they exist",
   () => {
     const patcher = new FilePatcher();
     const file: MetadataFile = {
@@ -33,7 +33,7 @@ Deno.test(
       type: "desktop",
       content: `[Desktop Entry]
 Name=Test App
-Keywords=old;keywords;
+Keywords=old;existing;
 Exec=test-app
 `,
     };
@@ -41,7 +41,11 @@ Exec=test-app
     const keywords = ["new", "keywords"];
     const result = patcher.patchKeywords(file, keywords);
 
-    assertStringIncludes(result, "Keywords=new;keywords;");
+    // Should merge old and new keywords
+    assertStringIncludes(result, "old");
+    assertStringIncludes(result, "existing");
+    assertStringIncludes(result, "new");
+    assertStringIncludes(result, "keywords");
     assertEquals(result.match(/Keywords=/g)?.length, 1);
   }
 );
@@ -193,4 +197,176 @@ Name=Test App
   const result = patcher.patchDescription(file, description);
 
   assertEquals(result, originalContent);
+});
+
+Deno.test("FilePatcher - hasKeywords detects keywords in desktop file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.desktop",
+    type: "desktop",
+    content: `[Desktop Entry]
+Name=Test App
+Keywords=test;sample;demo;
+Exec=test-app
+`,
+  };
+
+  assertEquals(patcher.hasKeywords(file), true);
+});
+
+Deno.test("FilePatcher - hasKeywords detects no keywords in desktop file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.desktop",
+    type: "desktop",
+    content: `[Desktop Entry]
+Name=Test App
+Exec=test-app
+`,
+  };
+
+  assertEquals(patcher.hasKeywords(file), false);
+});
+
+Deno.test("FilePatcher - hasKeywords detects keywords in XML file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.metainfo.xml",
+    type: "metainfo",
+    content: `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.example.App</id>
+  <name>Test App</name>
+  <keywords>
+    <keyword>test</keyword>
+    <keyword>sample</keyword>
+  </keywords>
+</component>
+`,
+  };
+
+  assertEquals(patcher.hasKeywords(file), true);
+});
+
+Deno.test("FilePatcher - hasKeywords detects no keywords in XML file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.metainfo.xml",
+    type: "metainfo",
+    content: `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.example.App</id>
+  <name>Test App</name>
+</component>
+`,
+  };
+
+  assertEquals(patcher.hasKeywords(file), false);
+});
+
+Deno.test("FilePatcher - getExistingKeywords from desktop file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.desktop",
+    type: "desktop",
+    content: `[Desktop Entry]
+Name=Test App
+Keywords=test;sample;demo;
+Exec=test-app
+`,
+  };
+
+  const keywords = patcher.getExistingKeywords(file);
+  assertEquals(keywords, ["test", "sample", "demo"]);
+});
+
+Deno.test("FilePatcher - getExistingKeywords from XML file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.metainfo.xml",
+    type: "metainfo",
+    content: `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.example.App</id>
+  <keywords>
+    <keyword>test</keyword>
+    <keyword>sample</keyword>
+    <keyword>demo</keyword>
+  </keywords>
+</component>
+`,
+  };
+
+  const keywords = patcher.getExistingKeywords(file);
+  assertEquals(keywords, ["test", "sample", "demo"]);
+});
+
+Deno.test("FilePatcher - mergeKeywords adds new keywords", () => {
+  const patcher = new FilePatcher();
+  const existing = ["test", "sample"];
+  const newKeywords = ["demo", "example"];
+
+  const merged = patcher.mergeKeywords(existing, newKeywords);
+  assertEquals(merged, ["test", "sample", "demo", "example"]);
+});
+
+Deno.test("FilePatcher - mergeKeywords avoids duplicates", () => {
+  const patcher = new FilePatcher();
+  const existing = ["test", "sample", "demo"];
+  const newKeywords = ["demo", "example", "TEST"];
+
+  const merged = patcher.mergeKeywords(existing, newKeywords);
+  // "demo" and "TEST" should not be duplicated (case-insensitive)
+  assertEquals(merged, ["test", "sample", "demo", "example"]);
+});
+
+Deno.test("FilePatcher - patchKeywords merges with existing keywords in desktop file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.desktop",
+    type: "desktop",
+    content: `[Desktop Entry]
+Name=Test App
+Keywords=existing;keywords;
+Exec=test-app
+`,
+  };
+
+  const newKeywords = ["new", "keywords", "here"];
+  const result = patcher.patchKeywords(file, newKeywords);
+
+  // Should contain both existing and new keywords
+  assertStringIncludes(result, "existing");
+  assertStringIncludes(result, "new");
+  assertStringIncludes(result, "here");
+  // But "keywords" should only appear once (case-insensitive deduplication)
+  assertEquals(result.match(/Keywords=/g)?.length, 1);
+});
+
+Deno.test("FilePatcher - patchKeywords merges with existing keywords in XML file", () => {
+  const patcher = new FilePatcher();
+  const file: MetadataFile = {
+    path: "/test/app.metainfo.xml",
+    type: "metainfo",
+    content: `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.example.App</id>
+  <keywords>
+    <keyword>existing</keyword>
+    <keyword>keywords</keyword>
+  </keywords>
+</component>
+`,
+  };
+
+  const newKeywords = ["new", "keywords", "here"];
+  const result = patcher.patchKeywords(file, newKeywords);
+
+  // Should contain both existing and new keywords
+  assertStringIncludes(result, "<keyword>existing</keyword>");
+  assertStringIncludes(result, "<keyword>new</keyword>");
+  assertStringIncludes(result, "<keyword>here</keyword>");
+  // But "keywords" should only appear once (case-insensitive deduplication)
+  const keywordMatches = result.match(/<keyword>keywords<\/keyword>/g);
+  assertEquals(keywordMatches?.length, 1);
 });

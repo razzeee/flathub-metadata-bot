@@ -9,16 +9,83 @@ export type PatchType = "keywords" | "summary" | "description";
 
 export class FilePatcher {
   /**
+   * Check if a file already contains keywords
+   * @param file - Metadata file to check
+   * @returns true if keywords exist, false otherwise
+   */
+  hasKeywords(file: MetadataFile): boolean {
+    if (file.type === "desktop") {
+      return /^Keywords=/m.test(file.content);
+    } else {
+      return /<keywords>[\s\S]*?<\/keywords>/m.test(file.content);
+    }
+  }
+
+  /**
+   * Extract existing keywords from a file
+   * @param file - Metadata file to extract from
+   * @returns Array of existing keywords
+   */
+  getExistingKeywords(file: MetadataFile): string[] {
+    if (file.type === "desktop") {
+      const match = file.content.match(/^Keywords=(.*)$/m);
+      if (match) {
+        return match[1]
+          .split(";")
+          .map((k) => k.trim())
+          .filter((k) => k.length > 0);
+      }
+    } else {
+      const match = file.content.match(/<keywords>[\s\S]*?<\/keywords>/m);
+      if (match) {
+        const keywordTags = match[0].match(/<keyword>([^<]+)<\/keyword>/g);
+        if (keywordTags) {
+          return keywordTags.map((tag) =>
+            tag.replace(/<\/?keyword>/g, "").trim()
+          );
+        }
+      }
+    }
+    return [];
+  }
+
+  /**
+   * Merge new keywords with existing ones, avoiding duplicates
+   * @param existing - Existing keywords
+   * @param newKeywords - New keywords to add
+   * @returns Merged keyword array
+   */
+  mergeKeywords(existing: string[], newKeywords: string[]): string[] {
+    const existingLower = existing.map((k) => k.toLowerCase());
+    const unique = [...existing];
+
+    for (const keyword of newKeywords) {
+      if (!existingLower.includes(keyword.toLowerCase())) {
+        unique.push(keyword);
+        existingLower.push(keyword.toLowerCase());
+      }
+    }
+
+    return unique;
+  }
+
+  /**
    * Patch keywords into a metadata file
    * @param file - Metadata file to patch
    * @param keywords - Keywords to add
    * @returns Updated file content
    */
   patchKeywords(file: MetadataFile, keywords: string[]): string {
+    // Check if keywords already exist and merge if they do
+    const existing = this.getExistingKeywords(file);
+    const mergedKeywords = existing.length > 0
+      ? this.mergeKeywords(existing, keywords)
+      : keywords;
+
     if (file.type === "desktop") {
-      return this.patchDesktopFile(file.content, keywords);
+      return this.patchDesktopFile(file.content, mergedKeywords);
     } else {
-      return this.patchKeywordsXml(file.content, keywords);
+      return this.patchKeywordsXml(file.content, mergedKeywords);
     }
   }
 
