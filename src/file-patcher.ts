@@ -7,7 +7,107 @@ import type { MetadataFile } from "./repository-manager.ts";
 
 export type PatchType = "keywords" | "summary" | "description";
 
+interface IndentationStyle {
+  type: "tabs" | "spaces";
+  size: number;
+  unit: string; // The actual string to use for one level of indentation
+}
+
 export class FilePatcher {
+  /**
+   * Detect the indentation style used in a file
+   * @param content - File content
+   * @returns Indentation style information
+   */
+  private detectIndentation(content: string): IndentationStyle {
+    const lines = content.split("\n");
+    const indentedLines: string[] = [];
+
+    // Collect lines that start with whitespace
+    for (const line of lines) {
+      const match = line.match(/^(\s+)\S/);
+      if (match) {
+        indentedLines.push(match[1]);
+      }
+    }
+
+    if (indentedLines.length === 0) {
+      // No indented lines found, default to 4 spaces
+      return { type: "spaces", size: 4, unit: "    " };
+    }
+
+    // Check if tabs are used
+    const tabLines = indentedLines.filter((indent) => indent.includes("\t"));
+    if (tabLines.length > indentedLines.length / 2) {
+      // Majority use tabs
+      return { type: "tabs", size: 1, unit: "\t" };
+    }
+
+    // Count spaces - find the most common indentation size
+    const spaceCounts: { [key: number]: number } = {};
+    for (const indent of indentedLines) {
+      const spaces = indent.length;
+      // Only count sizes that are likely intentional (2, 4, 8, etc.)
+      if (spaces > 0 && spaces <= 8) {
+        spaceCounts[spaces] = (spaceCounts[spaces] || 0) + 1;
+      }
+    }
+
+    // Find GCD-like common divisor for indentation
+    const sizes = Object.keys(spaceCounts).map(Number).sort((a, b) => a - b);
+    let indentSize = 4; // default
+
+    if (sizes.length > 0) {
+      // Use the smallest non-zero size as base
+      indentSize = sizes[0];
+
+      // If we see patterns like 2, 4, 6, 8 -> use 2
+      // If we see patterns like 4, 8 -> use 4
+      if (sizes.length > 1) {
+        const gcd = (
+          a: number,
+          b: number,
+        ): number => (b === 0 ? a : gcd(b, a % b));
+        indentSize = sizes.reduce((acc, size) => gcd(acc, size));
+      }
+
+      // Clamp to reasonable values
+      if (indentSize < 1) indentSize = 2;
+      if (indentSize > 8) indentSize = 4;
+    }
+
+    return {
+      type: "spaces",
+      size: indentSize,
+      unit: " ".repeat(indentSize),
+    };
+  }
+
+  /**
+   * Get indentation string for a given level
+   * @param content - File content to detect style from
+   * @param baseIndent - Base indentation string (if known)
+   * @param levels - Number of indentation levels
+   * @returns Indentation string
+   */
+  private getIndent(
+    content: string,
+    baseIndent: string | null = null,
+    levels: number = 1,
+  ): string {
+    if (baseIndent !== null && levels === 0) {
+      return baseIndent;
+    }
+
+    const style = this.detectIndentation(content);
+
+    if (baseIndent !== null) {
+      // Add to existing base indent
+      return baseIndent + style.unit.repeat(levels);
+    }
+
+    return style.unit.repeat(levels);
+  }
   /**
    * Check if a file already contains keywords
    * @param file - Metadata file to check
@@ -163,10 +263,22 @@ export class FilePatcher {
    * @returns Updated content
    */
   private patchKeywordsXml(content: string, keywords: string[]): string {
-    // Detect existing indentation or use 4 spaces as default
+    // Detect existing indentation
     const existingMatch = content.match(/^(\s*)<keywords>/m);
-    const baseIndent = existingMatch ? existingMatch[1] : "    ";
-    const contentIndent = baseIndent + "    "; // Add 4 more spaces for content
+    let baseIndent: string;
+
+    if (existingMatch) {
+      // Use existing keywords indentation
+      baseIndent = existingMatch[1];
+    } else {
+      // Detect from other elements (try <name>, <summary>, or <component> children)
+      const elementMatch = content.match(/^(\s*)<(?:name|summary|id)>/m);
+      baseIndent = elementMatch
+        ? elementMatch[1]
+        : this.getIndent(content, null, 1);
+    }
+
+    const contentIndent = this.getIndent(content, baseIndent, 1);
 
     // Generate keywords XML with proper indentation
     const keywordsXml = keywords
@@ -204,9 +316,20 @@ export class FilePatcher {
   private patchSummaryXml(content: string, summary: string): string {
     const escapedSummary = this.escapeXml(summary);
 
-    // Detect existing indentation or use 4 spaces as default
+    // Detect existing indentation
     const existingMatch = content.match(/^(\s*)<summary>/m);
-    const baseIndent = existingMatch ? existingMatch[1] : "    ";
+    let baseIndent: string;
+
+    if (existingMatch) {
+      // Use existing summary indentation
+      baseIndent = existingMatch[1];
+    } else {
+      // Detect from other elements (try <name>, <id>, or <component> children)
+      const elementMatch = content.match(/^(\s*)<(?:name|id)>/m);
+      baseIndent = elementMatch
+        ? elementMatch[1]
+        : this.getIndent(content, null, 1);
+    }
 
     const summaryTag = `${baseIndent}<summary>${escapedSummary}</summary>`;
 
@@ -244,10 +367,22 @@ export class FilePatcher {
    */
   private patchDescriptionXml(content: string, description: string): string {
     // Description is already formatted XML from the generator
-    // Detect existing indentation or use 4 spaces as default
+    // Detect existing indentation
     const existingMatch = content.match(/^(\s*)<description>/m);
-    const baseIndent = existingMatch ? existingMatch[1] : "    ";
-    const contentIndent = baseIndent + "    "; // Add 4 more spaces for content
+    let baseIndent: string;
+
+    if (existingMatch) {
+      // Use existing description indentation
+      baseIndent = existingMatch[1];
+    } else {
+      // Detect from other elements (try <summary>, <name>, or <component> children)
+      const elementMatch = content.match(/^(\s*)<(?:summary|name|id)>/m);
+      baseIndent = elementMatch
+        ? elementMatch[1]
+        : this.getIndent(content, null, 1);
+    }
+
+    const contentIndent = this.getIndent(content, baseIndent, 1);
 
     // Extract existing disclaimer paragraphs (NOTE: ...) if present so we can preserve them
     const descriptionRegexCapture = /<description>[\s\S]*?<\/description>/;
