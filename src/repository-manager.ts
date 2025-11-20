@@ -72,24 +72,33 @@ export class RepositoryManager {
       // Exact matches with app ID
       `${appId}.desktop`,
       `${appId}.desktop.in`,
+      `${appId}.desktop.in.in`,
       `${appId}.metainfo.xml`,
       `${appId}.metainfo.xml.in`,
+      `${appId}.metainfo.xml.in.in`,
       `${appId}.appdata.xml`,
       `${appId}.appdata.xml.in`,
+      `${appId}.appdata.xml.in.in`,
       // Matches with app name
       `${appName}.desktop`,
       `${appName}.desktop.in`,
+      `${appName}.desktop.in.in`,
       `${appName}.metainfo.xml`,
       `${appName}.metainfo.xml.in`,
+      `${appName}.metainfo.xml.in.in`,
       `${appName}.appdata.xml`,
       `${appName}.appdata.xml.in`,
+      `${appName}.appdata.xml.in.in`,
       // Generic patterns
       "*.desktop",
       "*.desktop.in",
+      "*.desktop.in.in",
       "*.metainfo.xml",
       "*.metainfo.xml.in",
+      "*.metainfo.xml.in.in",
       "*.appdata.xml",
       "*.appdata.xml.in",
+      "*.appdata.xml.in.in",
     ];
 
     const foundPaths = new Set<string>();
