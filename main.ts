@@ -522,7 +522,7 @@ async function main() {
         console.log(
           `\n🔍 Found existing keywords in: ${
             keywordLocations
-              .map((t) => t === "desktop" ? ".desktop" : `.${t}.xml`)
+              .map((t) => (t === "desktop" ? ".desktop" : `.${t}.xml`))
               .join(", ")
           }`,
         );

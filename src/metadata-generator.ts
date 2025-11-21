@@ -8,6 +8,7 @@ import { ChatOllama } from "@langchain/ollama";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
 import type { AppstreamData } from "./flathub-api.ts";
 import { FlathubAPI, getDescription, getKeywords } from "./flathub-api.ts";
+import { extractAppstreamUrls, fetchWebsitesContent } from "./web-utils.ts";
 
 export type LLMProvider = "openai" | "ollama";
 export type GenerationMode = "keywords" | "summary" | "description" | "all";
@@ -126,15 +127,41 @@ export class MetadataGenerator {
   }
 
   /**
+   * Fetch and format website content from appstream URLs to include in prompts.
+   * Limits each site's text to the first 1000 characters to keep prompts small.
+   */
+  private async getWebsiteContext(appstream: AppstreamData): Promise<string> {
+    try {
+      const urls = extractAppstreamUrls(
+        appstream as unknown as { urls?: Record<string, string | null> },
+      );
+      if (!urls || urls.length === 0) return "";
+      const fetched = await fetchWebsitesContent(urls);
+      const parts: string[] = [];
+      for (const [url, text] of Object.entries(fetched)) {
+        const snippet = text.replace(/\s+/g, " ").trim().slice(0, 1000);
+        parts.push(`${url}: ${snippet}`);
+      }
+      return parts.length
+        ? `\n\nWebsite content (extracted):\n${parts.join("\n\n")}`
+        : "";
+    } catch {
+      return "";
+    }
+  }
+
+  /**
    * Generate keywords for an app based on its appstream data
    * @param appstream - Appstream data
    * @returns Array of generated keywords
    */
   async generateKeywords(appstream: AppstreamData): Promise<string[]> {
-    const [similarAppsContext, categoriesContext] = await Promise.all([
-      this.getSimilarApps(appstream.id),
-      this.getCategories(),
-    ]);
+    const [similarAppsContext, categoriesContext, websiteContext] =
+      await Promise.all([
+        this.getSimilarApps(appstream.id),
+        this.getCategories(),
+        this.getWebsiteContext(appstream),
+      ]);
 
     const systemPrompt =
       `You are an SEO expert specializing in Linux desktop application discoverability.
@@ -149,24 +176,33 @@ CRITICAL OUTPUT FORMAT:
 - NO numbering or bullet points
 - JUST the keywords: "keyword1, keyword2, keyword3"
 
+KEYWORD LENGTH REQUIREMENT:
+- Each keyword MUST be strictly under 20 characters long (fewer than 20 letters/characters).
+- Prefer concise single words or short phrases; do NOT use long multi-word phrases that exceed 19 characters.
+
 SEO-FOCUSED GUIDELINES:
 - Keywords should be lowercase
 - Prioritize high-volume search terms users actually type
-- Include specific functionality (e.g., "pdf editor", "video converter")
+- Include specific functionality (e.g., "pdf editor", "video converter") but respect the length limit
 - Add only the most important synonyms (e.g., "image editor" + "photo editor")
-- Include use-case keywords (e.g., "video editing", "screen recording")
+- Include use-case keywords (e.g., "video editing", "screen recording") when they fit the length rule
 - Target both technical and non-technical audiences
 - Keep keywords concise (1-3 words for better matching)
 - Avoid duplicating existing categories
 - Include platform-specific terms only when highly relevant
 - No special characters or punctuation
 
+
 SEARCH INTENT FOCUS:
 - What would users type to FIND this app?
 - What problems does it solve? (include solution keywords)
 - What are the top 2-3 alternatives users might search for?
 
-Remember: Aim for 5 keywords. Only exceed this if there are truly critical keywords that must be included (max 8).`;
+IMPORTANT: Do NOT include the app name or variants of the app name as keywords. Keywords must not contain the exact app name (with or without punctuation/spaces).
+
+Remember: Aim for 5 keywords. Only exceed this if there are truly critical keywords that must be included (max 8).
+
+IMPORTANT: When referring to operating systems or platforms, never state "Ubuntu" as the platform — always use the term "Linux".`;
 
     const userPrompt = `Generate SEO-optimized keywords for this application:
 
@@ -174,9 +210,9 @@ Name: ${appstream.name}
 Summary: ${appstream.summary}
 Description: ${getDescription(appstream)}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
-Existing Keywords: ${
-      getKeywords(appstream)?.join(", ") || "None"
-    }${similarAppsContext}${categoriesContext}
+Existing Keywords: ${getKeywords(appstream)?.join(", ") || "None"}
+
+Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
 
 Think about:
 1. What users would search for to find this app
@@ -254,8 +290,18 @@ Return ONLY the comma-separated keywords with NO other text.`;
    * @returns Generated summary string
    */
   async generateSummary(appstream: AppstreamData): Promise<string> {
+    const [similarAppsContext, categoriesContext, websiteContext] =
+      await Promise.all([
+        this.getSimilarApps(appstream.id),
+        this.getCategories(),
+        this.getWebsiteContext(appstream),
+      ]);
+
     const systemPrompt =
       `You are an expert at writing app summaries following Flathub's quality guidelines.
+
+IMPORTANT: Any 'Additional context' appended to the user prompt is reference-only. Do NOT repeat or echo it in your response.
+IMPORTANT: When referring to operating systems or platforms, never state "Ubuntu" as the platform — always use the term "Linux".
 
 CRITICAL OUTPUT FORMAT:
 - Return ONLY the summary text
@@ -303,6 +349,8 @@ Name: ${appstream.name}
 Current Summary: ${appstream.summary || "N/A"}
 Description: ${getDescription(appstream)}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
+
+Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
 
 CRITICAL: Use sentence case (first letter capital, rest lowercase). Start with action verb. 10-25 chars ideal, max 35.
 Examples: "Benchmark system performance", "Edit images professionally"
@@ -372,8 +420,18 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
    * @returns Generated description string formatted with proper AppStream XML tags
    */
   async generateDescription(appstream: AppstreamData): Promise<string> {
+    const [similarAppsContext, categoriesContext, websiteContext] =
+      await Promise.all([
+        this.getSimilarApps(appstream.id),
+        this.getCategories(),
+        this.getWebsiteContext(appstream),
+      ]);
+
     const systemPrompt =
       `You are an expert at writing app descriptions for software stores, following Flathub and AppStream quality guidelines.
+
+IMPORTANT: Any 'Additional context' appended to the user prompt is reference-only. Do NOT repeat or echo it in your response.
+IMPORTANT: When referring to operating systems or platforms, never state "Ubuntu" as the platform — always use the term "Linux".
 
   CRITICAL OUTPUT FORMAT:
   - Use proper AppStream XML markup: <p>, <ul>, <ol>, <li>, <em>, <code>
@@ -445,6 +503,8 @@ Summary: ${appstream.summary}
 Current Description: ${getDescription(appstream) || "N/A"}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
 Keywords: ${getKeywords(appstream)?.join(", ") || "N/A"}
+
+Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
 
 Create a description with 3-5 paragraphs and/or lists. Use proper AppStream XML tags: <p>, <ul>, <ol>, <li>, <em>, <code>.
 Return ONLY the XML-formatted description with NO surrounding text, explanations, or code blocks.`;
