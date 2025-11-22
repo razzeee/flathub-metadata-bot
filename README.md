@@ -4,7 +4,7 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
 
 ## Features
 
-- 📥 Fetches app metadata from Flathub API v2
+- 📥 Fetches app metadata from the AppStream catalogue (default: https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz) via configurable `APPSTREAM_URL`
 - 🤖 Generates metadata using LLM (OpenAI or local Ollama):
   - **Keywords** - Relevant search terms for discoverability
   - **Summaries** - Short, user-friendly descriptions (following Flathub guidelines)
@@ -144,7 +144,7 @@ deno task dev --mode description org.inkscape.Inkscape
 
 ### What it does:
 
-1. Fetches app data from `https://flathub.org/api/v2/appstream/{app_id}`
+1. Fetches app data from the AppStream catalogue (default URL: `https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz`, configurable via `APPSTREAM_URL`)
 2. Uses AI to generate the requested metadata based on the app's existing information
    - In **all** mode: Generates keywords, summary, and description sequentially
    - In specific modes: Generates only the requested metadata type
@@ -166,7 +166,7 @@ metadata-bot/
 ├── .github/
 │   └── copilot-instructions.md  # Project instructions
 └── src/
-    ├── flathub-api.ts          # Flathub API client
+    ├── appstream-client.ts          # AppStream client (configurable URL)
     ├── metadata-generator.ts     # LangChain + LLM integration (keywords, summaries, descriptions)
     ├── repository-manager.ts    # Git operations
     ├── file-patcher.ts         # Metadata file patching
@@ -349,7 +349,7 @@ The project uses:
 - **Deno 2.x** - Modern JavaScript/TypeScript runtime
 - **LangChain** - LLM orchestration framework
 - **OpenAI API / Ollama** - LLM models for metadata generation
-- **Flathub API v2** - App metadata source
+- **AppStream catalogue** - App metadata source (default URL configurable via `APPSTREAM_URL`)
 
 ### Quality Assurance
 
@@ -400,7 +400,7 @@ See `tests/README.md` for more details on writing and running tests.
 
 ### API Client Architecture
 
-- `src/flathub-api.ts` - Hand-written wrapper with:
+- `src/appstream-client.ts` - Hand-written wrapper with:
   - Simplified type exports (`AppstreamData`, `SummaryData`, `SearchResult`)
   - Helper functions (`getDescription()`, `getKeywords()`) for union type safety
   - Convenience methods with error handling
