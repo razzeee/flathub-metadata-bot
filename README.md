@@ -350,7 +350,6 @@ The project uses:
 - **LangChain** - LLM orchestration framework
 - **OpenAI API / Ollama** - LLM models for metadata generation
 - **Flathub API v2** - App metadata source
-- **Orval** - TypeScript client generator for OpenAPI specs
 
 ### Quality Assurance
 
@@ -399,23 +398,8 @@ Deno.test("my test", () => {
 
 See `tests/README.md` for more details on writing and running tests.
 
-### Regenerating the API Client
-
-The Flathub API client is generated from the OpenAPI specification using Orval. If the Flathub API changes, regenerate the client:
-
-```bash
-deno task generate
-```
-
-This will:
-
-1. Fetch the latest OpenAPI spec from `https://flathub.org/api/v2/openapi.json`
-2. Generate TypeScript types and functions in `src/generated/flathub-api.ts`
-3. The wrapper in `src/flathub-api.ts` provides convenience methods and type guards
-
 ### API Client Architecture
 
-- `src/generated/flathub-api.ts` - Auto-generated Orval client (do not edit manually)
 - `src/flathub-api.ts` - Hand-written wrapper with:
   - Simplified type exports (`AppstreamData`, `SummaryData`, `SearchResult`)
   - Helper functions (`getDescription()`, `getKeywords()`) for union type safety

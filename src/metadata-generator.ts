@@ -6,8 +6,8 @@
 import { ChatOpenAI } from "@langchain/openai";
 import { ChatOllama } from "@langchain/ollama";
 import { HumanMessage, SystemMessage } from "@langchain/core/messages";
-import type { AppstreamData } from "./flathub-api.ts";
-import { FlathubAPI, getDescription, getKeywords } from "./flathub-api.ts";
+import type { AppstreamData } from "./appstream-client.ts";
+import { getDescription, getKeywords } from "./appstream-client.ts";
 import { extractAppstreamUrls, fetchWebsitesContent } from "./web-utils.ts";
 
 export type LLMProvider = "openai" | "ollama";
@@ -26,11 +26,9 @@ export type KeywordGeneratorConfig = MetadataGeneratorConfig;
 export class MetadataGenerator {
   private model: ChatOpenAI | ChatOllama;
   private config: MetadataGeneratorConfig;
-  private flathubAPI: FlathubAPI;
 
   constructor(config: MetadataGeneratorConfig) {
     this.config = config;
-    this.flathubAPI = new FlathubAPI();
 
     if (config.provider === "ollama") {
       this.model = new ChatOllama({
@@ -49,60 +47,6 @@ export class MetadataGenerator {
         modelName: config.modelName || "gpt-4o-mini",
         temperature: 0.7,
       }) as ChatOpenAI;
-    }
-  }
-
-  /**
-   * Fetch similar apps from Flathub for context (non-tool approach)
-   */
-  private async getSimilarApps(appId: string): Promise<string> {
-    try {
-      // Extract search term from app ID (e.g., "Firefox" from "org.mozilla.Firefox")
-      const searchTerm = appId.split(".").pop() || "";
-
-      const searchResult = await this.flathubAPI.search(searchTerm, 4);
-      const hits = searchResult.hits || [];
-
-      if (hits.length <= 1) return "";
-
-      // Return info about similar apps (excluding the current app)
-      const similarApps = hits
-        .slice(1, 4)
-        .filter((hit) => hit.app_id !== appId)
-        .map(
-          (hit) =>
-            `- ${hit.name}: ${
-              hit.keywords?.slice(0, 3).join(", ") || "no keywords"
-            }`,
-        )
-        .join("\n");
-
-      return similarApps
-        ? `\n\nSimilar apps and their keywords:\n${similarApps}`
-        : "";
-    } catch {
-      return "";
-    }
-  }
-
-  /**
-   * Fetch all available Flathub categories
-   */
-  private async getCategories(): Promise<string> {
-    try {
-      const categories = await this.flathubAPI.getCategories();
-
-      if (categories.length === 0) return "";
-
-      const categoryNames = categories
-        .filter((name) => name && name.length > 0)
-        .join(", ");
-
-      return categoryNames
-        ? `\n\nAvailable Flathub categories (avoid duplicating these as keywords):\n${categoryNames}`
-        : "";
-    } catch {
-      return "";
     }
   }
 
@@ -156,12 +100,9 @@ export class MetadataGenerator {
    * @returns Array of generated keywords
    */
   async generateKeywords(appstream: AppstreamData): Promise<string[]> {
-    const [similarAppsContext, categoriesContext, websiteContext] =
-      await Promise.all([
-        this.getSimilarApps(appstream.id),
-        this.getCategories(),
-        this.getWebsiteContext(appstream),
-      ]);
+    const [websiteContext] = await Promise.all([
+      this.getWebsiteContext(appstream),
+    ]);
 
     const systemPrompt =
       `You are an SEO expert specializing in Linux desktop application discoverability.
@@ -212,7 +153,7 @@ Description: ${getDescription(appstream)}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
 Existing Keywords: ${getKeywords(appstream)?.join(", ") || "None"}
 
-Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
+Additional context (reference only - do NOT repeat or echo these verbatim):${websiteContext}
 
 Think about:
 1. What users would search for to find this app
@@ -290,12 +231,9 @@ Return ONLY the comma-separated keywords with NO other text.`;
    * @returns Generated summary string
    */
   async generateSummary(appstream: AppstreamData): Promise<string> {
-    const [similarAppsContext, categoriesContext, websiteContext] =
-      await Promise.all([
-        this.getSimilarApps(appstream.id),
-        this.getCategories(),
-        this.getWebsiteContext(appstream),
-      ]);
+    const [websiteContext] = await Promise.all([
+      this.getWebsiteContext(appstream),
+    ]);
 
     const systemPrompt =
       `You are an expert at writing app summaries following Flathub's quality guidelines.
@@ -350,7 +288,7 @@ Current Summary: ${appstream.summary || "N/A"}
 Description: ${getDescription(appstream)}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
 
-Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
+Additional context (reference only - do NOT repeat or echo these verbatim):${websiteContext}
 
 CRITICAL: Use sentence case (first letter capital, rest lowercase). Start with action verb. 10-25 chars ideal, max 35.
 Examples: "Benchmark system performance", "Edit images professionally"
@@ -420,12 +358,9 @@ Return ONLY the summary text with NO other text, quotes, or explanations.`;
    * @returns Generated description string formatted with proper AppStream XML tags
    */
   async generateDescription(appstream: AppstreamData): Promise<string> {
-    const [similarAppsContext, categoriesContext, websiteContext] =
-      await Promise.all([
-        this.getSimilarApps(appstream.id),
-        this.getCategories(),
-        this.getWebsiteContext(appstream),
-      ]);
+    const [websiteContext] = await Promise.all([
+      this.getWebsiteContext(appstream),
+    ]);
 
     const systemPrompt =
       `You are an expert at writing app descriptions for software stores, following Flathub and AppStream quality guidelines.
@@ -504,7 +439,7 @@ Current Description: ${getDescription(appstream) || "N/A"}
 Categories: ${appstream.categories?.join(", ") || "N/A"}
 Keywords: ${getKeywords(appstream)?.join(", ") || "N/A"}
 
-Additional context (reference only - do NOT repeat or echo these verbatim):${similarAppsContext}${categoriesContext}${websiteContext}
+Additional context (reference only - do NOT repeat or echo these verbatim):${websiteContext}
 
 Create a description with 3-5 paragraphs and/or lists. Use proper AppStream XML tags: <p>, <ul>, <ol>, <li>, <em>, <code>.
 Return ONLY the XML-formatted description with NO surrounding text, explanations, or code blocks.`;

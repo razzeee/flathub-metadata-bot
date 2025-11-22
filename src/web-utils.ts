@@ -1,4 +1,4 @@
-import { DOMParser } from "jsr:@b-fuze/deno-dom";
+import { DOMParser } from "@b-fuze/deno-dom";
 
 /**
  * Web utilities: extract URLs from appstream data and fetch their content.
@@ -51,7 +51,9 @@ export async function fetchWebsitesContent(
           } else {
             const nodes = Array.from(doc.querySelectorAll("p, li, h1, h2, h3"));
             const blocks = nodes
-              .map((n: any) => (n.textContent || "").trim())
+              .map((n: unknown) =>
+                ((n as { textContent: string | null }).textContent || "").trim()
+              )
               .filter((s: string) => s.length > 0);
             if (blocks.length > 0) {
               text = blocks.join("\n\n");

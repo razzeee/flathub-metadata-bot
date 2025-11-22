@@ -2,7 +2,6 @@
   "tasks": {
     "dev": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run main.ts",
     "start": "deno run --allow-net --allow-env --allow-read --allow-write --allow-run main.ts",
-    "generate": "deno run --allow-net --allow-read --allow-write --allow-env npm:orval",
     "test": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run",
     "test:watch": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run --watch",
     "test:coverage": "deno test --allow-net --allow-env --allow-read --allow-write --allow-run --coverage=coverage",
@@ -19,7 +18,6 @@
     "@langchain/openai": "npm:@langchain/openai@^0.3.0",
     "@langchain/ollama": "npm:@langchain/ollama@^0.1.0",
     "langchain": "npm:langchain@^0.3.0",
-    "orval": "npm:orval@^7.16.0",
     "@std/fs": "jsr:@std/fs@^1.0.0",
     "@std/path": "jsr:@std/path@^1.0.0",
     "@std/dotenv": "jsr:@std/dotenv@^0.225.0",
@@ -28,7 +26,10 @@
   },
   "compilerOptions": {
     "strict": true,
-    "lib": ["deno.window", "esnext"]
+    "lib": [
+      "deno.window",
+      "esnext"
+    ]
   },
   "fmt": {
     "useTabs": false,
@@ -37,14 +38,30 @@
     "semiColons": true,
     "singleQuote": false,
     "proseWrap": "preserve",
-    "include": ["src/", "main.ts", "orval.config.ts"],
-    "exclude": ["src/generated/", "cloned_repos/", "coverage/"]
+    "include": [
+      "src/",
+      "main.ts"
+    ],
+    "exclude": [
+      "src/generated/",
+      "cloned_repos/",
+      "coverage/"
+    ]
   },
   "lint": {
-    "include": ["src/", "main.ts", "orval.config.ts"],
-    "exclude": ["src/generated/", "cloned_repos/", "coverage/"],
+    "include": [
+      "src/",
+      "main.ts"
+    ],
+    "exclude": [
+      "src/generated/",
+      "cloned_repos/",
+      "coverage/"
+    ],
     "rules": {
-      "tags": ["recommended"],
+      "tags": [
+        "recommended"
+      ],
       "include": [
         "ban-untagged-todo",
         "no-const-assign",
@@ -52,11 +69,19 @@
         "no-throw-literal",
         "eqeqeq"
       ],
-      "exclude": ["no-await-in-loop"]
+      "exclude": [
+        "no-await-in-loop"
+      ]
     }
   },
   "test": {
-    "include": ["tests/", "src/**/*.test.ts"],
-    "exclude": ["cloned_repos/", "coverage/"]
+    "include": [
+      "tests/",
+      "src/**/*.test.ts"
+    ],
+    "exclude": [
+      "cloned_repos/",
+      "coverage/"
+    ]
   }
 }

@@ -5,7 +5,7 @@
  * Automates keyword, summary, and description generation and PR creation for Flathub apps
  */
 
-import { FlathubAPI } from "./src/flathub-api.ts";
+import { AppStreamClient, type AppstreamData } from "./src/appstream-client.ts";
 import {
   type GenerationMode,
   MetadataGenerator,
@@ -17,7 +17,6 @@ import {
 import { FilePatcher } from "./src/file-patcher.ts";
 import { PRManager } from "./src/pr-manager.ts";
 import { load } from "@std/dotenv";
-import { DesktopAppstream } from "./src/generated/flathub-api.ts";
 
 // Load environment variables
 const env = await load();
@@ -36,6 +35,16 @@ const GITLAB_KDE_TOKEN = env.GITLAB_KDE_TOKEN ||
 const GITLAB_FREEDESKTOP_TOKEN = env.GITLAB_FREEDESKTOP_TOKEN ||
   Deno.env.get("GITLAB_FREEDESKTOP_TOKEN");
 const CODEBERG_TOKEN = env.CODEBERG_TOKEN || Deno.env.get("CODEBERG_TOKEN");
+const APPSTREAM_URL = env.APPSTREAM_URL || Deno.env.get("APPSTREAM_URL");
+
+/**
+ * Get the Flathub repository URL for an app
+ * @param appId - The Flathub app ID
+ * @returns Flathub repository URL
+ */
+function getFlathubRepoUrl(appId: string): string {
+  return `https://github.com/flathub/${appId}`;
+}
 
 /**
  * Prompt user after generating a value
@@ -129,14 +138,17 @@ async function main() {
   } else {
     console.log(`   Model: ${LLM_MODEL || "gpt-4o-mini"}`);
   }
+  if (APPSTREAM_URL) {
+    console.log(`   AppStream URL: ${APPSTREAM_URL}`);
+  }
   console.log();
 
   try {
     // Step 1: Fetch appstream data
-    console.log("📥 Fetching appstream data from Flathub...");
-    const flathubAPI = new FlathubAPI();
+    console.log("📥 Fetching appstream data...");
+    const appStreamClient = new AppStreamClient(APPSTREAM_URL);
     // appId is guaranteed defined beyond this point
-    const appstream = await flathubAPI.getAppstream(appId!);
+    const appstream = await appStreamClient.getAppstream(appId!);
     console.log(`✅ Found: ${appstream.name}`);
     console.log(`   Summary: ${appstream.summary}`);
 
@@ -150,7 +162,7 @@ async function main() {
     try {
       const repoManagerProbe = new RepositoryManager();
       // Prefer Flathub repo
-      const flathubRepoUrlProbe = flathubAPI.getFlathubRepoUrl(appId!);
+      const flathubRepoUrlProbe = getFlathubRepoUrl(appId!);
       let probeRepoPath: string | null = null;
       try {
         probeRepoPath = await repoManagerProbe.cloneRepository(
@@ -159,7 +171,7 @@ async function main() {
         );
       } catch (_) {
         // fallback to upstream if available
-        const upstreamUrl = flathubAPI.getRepositoryUrl(appstream);
+        const upstreamUrl = appStreamClient.getRepositoryUrl(appstream);
         if (upstreamUrl) {
           try {
             probeRepoPath = await repoManagerProbe.cloneRepository(
@@ -222,9 +234,9 @@ async function main() {
       }
       if (
         !existing.description &&
-        (appstream as DesktopAppstream).description
+        (appstream as AppstreamData).description
       ) {
-        existing.description = (appstream as DesktopAppstream).description ||
+        existing.description = (appstream as AppstreamData).description ||
           undefined;
       }
     } catch (e) {
@@ -420,7 +432,7 @@ async function main() {
 
     // Step 3: Try Flathub repository first
     console.log("\n📦 Checking Flathub repository...");
-    const flathubRepoUrl = flathubAPI.getFlathubRepoUrl(appId!);
+    const flathubRepoUrl = getFlathubRepoUrl(appId!);
     console.log(`   ${flathubRepoUrl}`);
 
     try {
@@ -460,7 +472,7 @@ async function main() {
 
     // Step 4: If no files found in Flathub repo, try upstream repository
     if (metadataFiles.length === 0) {
-      const upstreamRepoUrl = flathubAPI.getRepositoryUrl(appstream);
+      const upstreamRepoUrl = appStreamClient.getRepositoryUrl(appstream);
       if (!upstreamRepoUrl) {
         console.error(
           "\n❌ No upstream repository URL found in appstream data",
