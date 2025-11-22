@@ -232,10 +232,7 @@ async function main() {
       if (!existing.summary && appstream.summary) {
         existing.summary = appstream.summary;
       }
-      if (
-        !existing.description &&
-        (appstream as AppstreamData).description
-      ) {
+      if (!existing.description && (appstream as AppstreamData).description) {
         existing.description = (appstream as AppstreamData).description ||
           undefined;
       }
@@ -1073,6 +1070,26 @@ async function main() {
     }
 
     // Step 9: Create pull request
+    // Check if using non-default AppStream URL with Flathub repository
+    if (!appStreamClient.isUsingDefaultUrl() && isFlathubRepo) {
+      console.log(
+        "\n⚠️  Cannot create PR: Using non-default AppStream URL with Flathub repository",
+      );
+      console.log(`   Current URL: ${APPSTREAM_URL || "custom URL"}`);
+      console.log(
+        `   Default URL: https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz`,
+      );
+      console.log(
+        "\n   PRs to Flathub repositories should only use the default AppStream data source.",
+      );
+      console.log(
+        `\n   Changes are ready in branch '${branchName}' at: ${repoPath}`,
+      );
+      console.log("   You can manually review and push the changes.");
+      console.log("\n✨ Done!\n");
+      return;
+    }
+
     let hasToken = false;
     if (platform === "github" && GITHUB_TOKEN) {
       hasToken = true;

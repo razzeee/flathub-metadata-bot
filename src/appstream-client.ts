@@ -1,5 +1,8 @@
 import { type Document, DOMParser } from "@b-fuze/deno-dom";
 
+export const DEFAULT_APPSTREAM_URL =
+  "https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz";
+
 export interface AppstreamData {
   id: string;
   type: "desktop" | "addon" | "console-application" | "generic";
@@ -49,11 +52,16 @@ export class AppStreamClient {
   private appstreamXml: Document | null = null;
   private appstreamUrl: string;
 
-  constructor(
-    appstreamUrl: string =
-      "https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz",
-  ) {
+  constructor(appstreamUrl: string = DEFAULT_APPSTREAM_URL) {
     this.appstreamUrl = appstreamUrl;
+  }
+
+  /**
+   * Check if using the default Flathub AppStream URL
+   * @returns true if using the default URL, false otherwise
+   */
+  isUsingDefaultUrl(): boolean {
+    return this.appstreamUrl === DEFAULT_APPSTREAM_URL;
   }
 
   private async fetchAppstreamXml(): Promise<Document> {
