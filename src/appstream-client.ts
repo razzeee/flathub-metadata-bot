@@ -225,6 +225,8 @@ export class AppStreamClient {
       if (
         homepage.includes("github.com") ||
         homepage.includes("gitlab.com") ||
+        homepage.includes("gitlab.gnome.org") ||
+        homepage.includes("invent.kde.org") ||
         homepage.includes("codeberg.org") ||
         homepage.includes("bitbucket.org") ||
         homepage.includes("git.sr.ht")
@@ -239,6 +241,8 @@ export class AppStreamClient {
       if (
         bugtracker.includes("github.com") ||
         bugtracker.includes("gitlab.com") ||
+        bugtracker.includes("gitlab.gnome.org") ||
+        bugtracker.includes("invent.kde.org") ||
         bugtracker.includes("codeberg.org") ||
         bugtracker.includes("bitbucket.org") ||
         bugtracker.includes("git.sr.ht")
@@ -246,7 +250,7 @@ export class AppStreamClient {
         // Extract base repository URL from issue tracker URLs
         // e.g., "https://github.com/user/repo/issues" -> "https://github.com/user/repo"
         const repoUrl = appstream.urls.bugtracker.replace(
-          /\/(issues|bugs|tracker).*$/i,
+          /\/(-?\/)?(issues|bugs|tracker).*$/i,
           "",
         );
         return repoUrl;

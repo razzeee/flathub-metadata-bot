@@ -84,3 +84,29 @@ Deno.test("AppStreamClient.getRepositoryUrl extracts vcs_browser", () => {
   const url = client.getRepositoryUrl(appstream);
   assertEquals(url, "https://github.com/test/repo");
 });
+
+Deno.test("AppStreamClient.getRepositoryUrl extracts gitlab.gnome.org from homepage", () => {
+  const client = new AppStreamClient();
+  const appstream = {
+    name: "Test App",
+    urls: {
+      homepage: "https://gitlab.gnome.org/gnome/test-app",
+    },
+  } as any;
+
+  const url = client.getRepositoryUrl(appstream);
+  assertEquals(url, "https://gitlab.gnome.org/gnome/test-app");
+});
+
+Deno.test("AppStreamClient.getRepositoryUrl extracts invent.kde.org from bugtracker", () => {
+  const client = new AppStreamClient();
+  const appstream = {
+    name: "Test App",
+    urls: {
+      bugtracker: "https://invent.kde.org/kde/test-app/-/issues",
+    },
+  } as any;
+
+  const url = client.getRepositoryUrl(appstream);
+  assertEquals(url, "https://invent.kde.org/kde/test-app");
+});
