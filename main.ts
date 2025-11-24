@@ -1321,6 +1321,9 @@ async function main() {
       // In batch mode, continue to next app on error
       if (batchMode) {
         console.error(`Skipping ${appId} due to error\n`);
+        if (batchProcessor && appId) {
+          await batchProcessor.getProgressTracker().markProcessed(appId);
+        }
         continue;
       }
 
