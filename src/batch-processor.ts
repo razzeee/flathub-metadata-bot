@@ -8,6 +8,7 @@ import { ProgressTracker } from "./progress-tracker.ts";
 export interface BatchProcessorOptions {
   appstreamUrl?: string;
   skipWithKeywords?: boolean;
+  autoMarkProcessed?: boolean;
   onAppProcess?: (appId: string, appstream: AppstreamData) => Promise<void>;
   onAppSkipped?: (appId: string, reason: string) => void;
   onAppError?: (appId: string, error: Error) => void;
@@ -17,6 +18,7 @@ export class BatchProcessor {
   private appStreamClient: AppStreamClient;
   private progressTracker: ProgressTracker;
   private skipWithKeywords: boolean;
+  private autoMarkProcessed: boolean;
   private onAppProcess?: (
     appId: string,
     appstream: AppstreamData,
@@ -28,6 +30,7 @@ export class BatchProcessor {
     this.appStreamClient = new AppStreamClient(options.appstreamUrl);
     this.progressTracker = new ProgressTracker();
     this.skipWithKeywords = options.skipWithKeywords || false;
+    this.autoMarkProcessed = options.autoMarkProcessed ?? true;
     this.onAppProcess = options.onAppProcess;
     this.onAppSkipped = options.onAppSkipped;
     this.onAppError = options.onAppError;
@@ -91,7 +94,9 @@ export class BatchProcessor {
         }
 
         // Mark as processed
-        await this.progressTracker.markProcessed(appId);
+        if (this.autoMarkProcessed) {
+          await this.progressTracker.markProcessed(appId);
+        }
         processedCount++;
 
         console.log(`\n✅ Successfully processed ${appId}\n`);

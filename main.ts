@@ -158,6 +158,7 @@ async function main() {
 
   // If batch mode, get list of apps and process them one by one
   const appsToProcess: Array<{ appId: string; appstream: AppstreamData }> = [];
+  let batchProcessor: BatchProcessor | undefined;
 
   if (batchMode) {
     console.log("\n🚀 Starting batch processing mode...");
@@ -178,9 +179,10 @@ async function main() {
     console.log();
 
     try {
-      const batchProcessor = new BatchProcessor({
+      batchProcessor = new BatchProcessor({
         appstreamUrl: APPSTREAM_URL,
         skipWithKeywords,
+        autoMarkProcessed: false,
         onAppProcess: (id, appstream) => {
           // Just collect the apps - we'll process them using the main workflow
           appsToProcess.push({ appId: id, appstream });
@@ -400,7 +402,7 @@ async function main() {
             console.error("\n❌ No keywords were generated!");
             console.error("The AI did not produce any valid keywords.");
             console.error("Please try again or check your LLM configuration.");
-            Deno.exit(1);
+            throw new Error("No keywords generated");
           }
 
           console.log(`✅ Generated ${keywords.length} keywords:`);
@@ -498,7 +500,15 @@ async function main() {
         !acceptedMetadata.summary &&
         !acceptedMetadata.description
       ) {
-        console.log("\n⚠️  No metadata changes were accepted. Exiting.");
+        console.log("\n⚠️  No metadata changes were accepted.");
+        if (batchMode) {
+          if (batchProcessor) {
+            await batchProcessor.getProgressTracker().markProcessed(appId);
+          }
+          console.log("⏭️  Moving to next app...");
+          continue;
+        }
+        console.log("Exiting.");
         Deno.exit(0);
       }
 
@@ -595,7 +605,7 @@ async function main() {
           console.error(
             "\n❌ No upstream repository URL found in appstream data",
           );
-          Deno.exit(1);
+          throw new Error("No upstream repository URL found");
         }
 
         console.log(`\n📦 Trying upstream repository: ${upstreamRepoUrl}`);
@@ -613,7 +623,7 @@ async function main() {
 
         if (metadataFiles.length === 0) {
           console.error("❌ No metadata files found in either repository");
-          Deno.exit(1);
+          throw new Error("No metadata files found");
         }
 
         console.log(`✅ Found ${metadataFiles.length} file(s):`);
@@ -1203,6 +1213,12 @@ async function main() {
             }`,
           );
         }
+      }
+
+      // Mark as processed before attempting PR creation
+      // This ensures apps are tracked even if PR creation fails or is skipped
+      if (batchMode && batchProcessor) {
+        await batchProcessor.getProgressTracker().markProcessed(appId);
       }
 
       // Step 9: Create pull request
