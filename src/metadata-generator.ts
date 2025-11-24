@@ -143,7 +143,9 @@ IMPORTANT: Do NOT include the app name or variants of the app name as keywords. 
 
 Remember: Aim for 5 keywords. Only exceed this if there are truly critical keywords that must be included (max 8).
 
-IMPORTANT: When referring to operating systems or platforms, never state "Ubuntu" as the platform — always use the term "Linux".`;
+EXCLUSIONS:
+- Do NOT mention desktop environments like "gnome", "kde", "xfce", etc.
+- Do NOT mention "linux", "ubuntu", "linux app", "linux game", or "flathub" as keywords. The platform is implicit.`;
 
     const userPrompt = `Generate SEO-optimized keywords for this application:
 
