@@ -246,6 +246,7 @@ async function main() {
       // appId is guaranteed defined beyond this point
       const appstream = await appStreamClient.getAppstream(appId!);
       console.log(`✅ Found: ${appstream.name}`);
+      console.log(`   Link: https://flathub.org/apps/${appId}`);
       console.log(`   Summary: ${appstream.summary}`);
 
       // Step 1.5: Attempt to read existing metadata from repository for comparison
