@@ -16,6 +16,7 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
   - GitLab (gitlab.com and custom instances like gitlab.gnome.org, invent.kde.org)
   - Codeberg
 - 🏠 **Supports local Ollama** - No API costs, full privacy!
+- 🔁 **Batch Processing** - Process multiple apps from catalogue with progress tracking and resume capability
 
 ## Prerequisites
 
@@ -58,9 +59,13 @@ CODEBERG_TOKEN=your_codeberg_token_here
 
 ## Usage
 
-### Interactive Workflow
+### Single App Mode
 
-The bot now provides an interactive workflow where you can **accept**, **regenerate**, **skip**, or **quit** after each generated value:
+Process individual apps with interactive workflow.
+
+#### Interactive Workflow
+
+The bot provides an interactive workflow where you can **accept**, **regenerate**, **skip**, or **quit** after each generated value:
 
 - **(a)ccept** - Accept the generated value and include it in the PR
 - **(r)egenerate** - Generate a new value (AI will create a different version)
@@ -73,7 +78,7 @@ This allows you to:
 - Regenerate individual values until you're satisfied
 - Create PRs with only the metadata changes you approve
 
-### Generate All Metadata (default mode)
+#### Generate All Metadata (default mode)
 
 By default, the bot generates keywords, summary, and description. You'll be prompted after each:
 
@@ -107,25 +112,25 @@ Summary: (a)ccept, (r)egenerate, (s)kip, or (q)uit: s
 ...
 ```
 
-### Generate Keywords Only
+#### Generate Keywords Only
 
 ```bash
 deno task dev --mode keywords org.mozilla.Firefox
 ```
 
-### Generate Summary Only
+#### Generate Summary Only
 
 ```bash
 deno task dev --mode summary org.gimp.GIMP
 ```
 
-### Generate Description Only
+#### Generate Description Only
 
 ```bash
 deno task dev --mode description org.inkscape.Inkscape
 ```
 
-### Modes
+#### Modes
 
 - **all** (default) - Generates keywords, summary, AND description
   - You'll be prompted to accept/regenerate/skip each one individually
@@ -142,7 +147,53 @@ deno task dev --mode description org.inkscape.Inkscape
   - Informative but scannable
   - Added to appstream XML files only
 
-### What it does:
+### Batch Processing Mode
+
+Process multiple apps from the appstream catalogue automatically with progress tracking.
+
+#### Basic Batch Processing
+
+Process all desktop and console applications:
+
+```bash
+deno task dev --batch
+```
+
+#### Skip Apps with Keywords
+
+Only process apps that don't already have keywords:
+
+```bash
+deno task dev --batch --skip-with-keywords
+```
+
+#### Resume Interrupted Runs
+
+Batch mode automatically tracks progress in `processed_apps.json`. If interrupted, simply run the same command again:
+
+```bash
+deno task dev --batch
+# Automatically skips already processed apps
+```
+
+#### How Batch Mode Works
+
+1. Fetches all apps from the AppStream catalogue
+2. Filters to desktop/console applications only
+3. Optionally filters out apps with existing keywords (with `--skip-with-keywords`)
+4. Processes each app sequentially
+5. Tracks progress after each app (safe to interrupt)
+6. Continues on errors (logs and skips failed apps)
+7. Shows summary at completion
+
+**Progress Tracking:**
+
+- Progress saved to `processed_apps.json` (git-ignored)
+- Safe to interrupt at any time
+- Automatically resumes from where it left off
+- View processed apps count in summary
+
+### Single App Workflow
 
 1. Fetches app data from the AppStream catalogue (default URL: `https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz`, configurable via `APPSTREAM_URL`)
 2. Uses AI to generate the requested metadata based on the app's existing information
@@ -195,11 +246,13 @@ metadata-bot/
 #### Required Token Scopes
 
 - **GitHub**: `repo` scope is required for:
+
   - Reading repository metadata
   - Forking repositories
   - Creating pull requests
 
 - **GitLab** (all instances): `api` scope is required for:
+
   - Reading user information
   - Forking repositories
   - Reading project metadata

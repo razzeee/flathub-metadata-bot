@@ -6,65 +6,70 @@ import { assertEquals } from "@std/assert";
 import { FilePatcher } from "../src/file-patcher.ts";
 import type { MetadataFile } from "../src/repository-manager.ts";
 
-Deno.test("Scenario: Keywords exist in .desktop file only - should update there", () => {
-  const patcher = new FilePatcher();
+Deno.test(
+  "Scenario: Keywords exist in .desktop file only - should update there",
+  () => {
+    const patcher = new FilePatcher();
 
-  const desktopFile: MetadataFile = {
-    path: "/test/app.desktop",
-    type: "desktop",
-    content: `[Desktop Entry]
+    const desktopFile: MetadataFile = {
+      path: "/test/app.desktop",
+      type: "desktop",
+      content: `[Desktop Entry]
 Name=Test App
 Keywords=existing;keywords;
 Exec=test-app
 `,
-  };
+    };
 
-  const xmlFile: MetadataFile = {
-    path: "/test/app.metainfo.xml",
-    type: "metainfo",
-    content: `<?xml version="1.0" encoding="UTF-8"?>
+    const xmlFile: MetadataFile = {
+      path: "/test/app.metainfo.xml",
+      type: "metainfo",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
   <id>com.example.App</id>
   <name>Test App</name>
 </component>
 `,
-  };
+    };
 
-  const files = [desktopFile, xmlFile];
+    const files = [desktopFile, xmlFile];
 
-  // Detect where keywords exist
-  const hasKeywordsInDesktop = patcher.hasKeywords(desktopFile);
-  const hasKeywordsInXml = patcher.hasKeywords(xmlFile);
+    // Detect where keywords exist
+    const hasKeywordsInDesktop = patcher.hasKeywords(desktopFile);
+    const hasKeywordsInXml = patcher.hasKeywords(xmlFile);
 
-  assertEquals(hasKeywordsInDesktop, true);
-  assertEquals(hasKeywordsInXml, false);
+    assertEquals(hasKeywordsInDesktop, true);
+    assertEquals(hasKeywordsInXml, false);
 
-  // Keywords should be added to desktop file only
-  const newKeywords = ["new", "additional"];
-  const patchedDesktop = patcher.patchKeywords(desktopFile, newKeywords);
+    // Keywords should be added to desktop file only
+    const newKeywords = ["new", "additional"];
+    const patchedDesktop = patcher.patchKeywords(desktopFile, newKeywords);
 
-  // Should contain both old and new
-  assertEquals(patchedDesktop.includes("existing"), true);
-  assertEquals(patchedDesktop.includes("new"), true);
-  assertEquals(patchedDesktop.includes("additional"), true);
-});
+    // Should contain both old and new
+    assertEquals(patchedDesktop.includes("existing"), true);
+    assertEquals(patchedDesktop.includes("new"), true);
+    assertEquals(patchedDesktop.includes("additional"), true);
+  }
+);
 
-Deno.test("Scenario: Keywords exist in XML file only - should update there", () => {
-  const patcher = new FilePatcher();
+Deno.test(
+  "Scenario: Keywords exist in XML file only - should update there",
+  () => {
+    const patcher = new FilePatcher();
 
-  const desktopFile: MetadataFile = {
-    path: "/test/app.desktop",
-    type: "desktop",
-    content: `[Desktop Entry]
+    const desktopFile: MetadataFile = {
+      path: "/test/app.desktop",
+      type: "desktop",
+      content: `[Desktop Entry]
 Name=Test App
 Exec=test-app
 `,
-  };
+    };
 
-  const xmlFile: MetadataFile = {
-    path: "/test/app.metainfo.xml",
-    type: "metainfo",
-    content: `<?xml version="1.0" encoding="UTF-8"?>
+    const xmlFile: MetadataFile = {
+      path: "/test/app.metainfo.xml",
+      type: "metainfo",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
 <component type="desktop">
   <id>com.example.App</id>
   <name>Test App</name>
@@ -74,24 +79,25 @@ Exec=test-app
   </keywords>
 </component>
 `,
-  };
+    };
 
-  // Detect where keywords exist
-  const hasKeywordsInDesktop = patcher.hasKeywords(desktopFile);
-  const hasKeywordsInXml = patcher.hasKeywords(xmlFile);
+    // Detect where keywords exist
+    const hasKeywordsInDesktop = patcher.hasKeywords(desktopFile);
+    const hasKeywordsInXml = patcher.hasKeywords(xmlFile);
 
-  assertEquals(hasKeywordsInDesktop, false);
-  assertEquals(hasKeywordsInXml, true);
+    assertEquals(hasKeywordsInDesktop, false);
+    assertEquals(hasKeywordsInXml, true);
 
-  // Keywords should be added to XML file only
-  const newKeywords = ["new", "additional"];
-  const patchedXml = patcher.patchKeywords(xmlFile, newKeywords);
+    // Keywords should be added to XML file only
+    const newKeywords = ["new", "additional"];
+    const patchedXml = patcher.patchKeywords(xmlFile, newKeywords);
 
-  // Should contain both old and new
-  assertEquals(patchedXml.includes("<keyword>existing</keyword>"), true);
-  assertEquals(patchedXml.includes("<keyword>new</keyword>"), true);
-  assertEquals(patchedXml.includes("<keyword>additional</keyword>"), true);
-});
+    // Should contain both old and new
+    assertEquals(patchedXml.includes("<keyword>existing</keyword>"), true);
+    assertEquals(patchedXml.includes("<keyword>new</keyword>"), true);
+    assertEquals(patchedXml.includes("<keyword>additional</keyword>"), true);
+  }
+);
 
 Deno.test("Scenario: Keywords exist in BOTH files - should update both", () => {
   const patcher = new FilePatcher();
@@ -183,3 +189,41 @@ Exec=test-app
   assertEquals(patchedXml.includes("<keyword>new</keyword>"), true);
   assertEquals(patchedXml.includes("<keyword>keywords</keyword>"), true);
 });
+
+Deno.test(
+  "Scenario: Keywords with attributes - should be detected and preserved",
+  () => {
+    const patcher = new FilePatcher();
+
+    const xmlFile: MetadataFile = {
+      path: "/test/app.metainfo.xml",
+      type: "metainfo",
+      content: `<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop">
+  <id>com.example.App</id>
+  <name>Test App</name>
+  <keywords xml:lang="en">
+    <keyword>existing</keyword>
+  </keywords>
+</component>
+`,
+    };
+
+    // Should detect keywords despite attributes
+    const hasKeywords = patcher.hasKeywords(xmlFile);
+    assertEquals(hasKeywords, true);
+
+    // Should extract existing keywords
+    const existing = patcher.getExistingKeywords(xmlFile);
+    assertEquals(existing.includes("existing"), true);
+
+    // Should preserve attributes when patching
+    const newKeywords = ["new"];
+    const patched = patcher.patchKeywords(xmlFile, newKeywords);
+
+    // Check if attribute is preserved
+    assertEquals(patched.includes('<keywords xml:lang="en">'), true);
+    assertEquals(patched.includes("<keyword>existing</keyword>"), true);
+    assertEquals(patched.includes("<keyword>new</keyword>"), true);
+  }
+);

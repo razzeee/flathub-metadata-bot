@@ -37,3 +37,7 @@ deno.lock
 
 # Test coverage
 coverage/
+
+# Batch processing progress
+processed_apps.json
+processed_apps.json.tmp

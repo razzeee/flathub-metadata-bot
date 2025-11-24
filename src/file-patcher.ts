@@ -54,7 +54,9 @@ export class FilePatcher {
     }
 
     // Find GCD-like common divisor for indentation
-    const sizes = Object.keys(spaceCounts).map(Number).sort((a, b) => a - b);
+    const sizes = Object.keys(spaceCounts)
+      .map(Number)
+      .sort((a, b) => a - b);
     let indentSize = 4; // default
 
     if (sizes.length > 0) {
@@ -64,10 +66,8 @@ export class FilePatcher {
       // If we see patterns like 2, 4, 6, 8 -> use 2
       // If we see patterns like 4, 8 -> use 4
       if (sizes.length > 1) {
-        const gcd = (
-          a: number,
-          b: number,
-        ): number => (b === 0 ? a : gcd(b, a % b));
+        const gcd = (a: number, b: number): number =>
+          b === 0 ? a : gcd(b, a % b);
         indentSize = sizes.reduce((acc, size) => gcd(acc, size));
       }
 
@@ -117,7 +117,7 @@ export class FilePatcher {
     if (file.type === "desktop") {
       return /^Keywords=/m.test(file.content);
     } else {
-      return /<keywords>[\s\S]*?<\/keywords>/m.test(file.content);
+      return /<keywords(?:\s+[^>]*)?>[\s\S]*?<\/keywords>/m.test(file.content);
     }
   }
 
@@ -136,12 +136,16 @@ export class FilePatcher {
           .filter((k) => k.length > 0);
       }
     } else {
-      const match = file.content.match(/<keywords>[\s\S]*?<\/keywords>/m);
+      const match = file.content.match(
+        /<keywords(?:\s+[^>]*)?>[\s\S]*?<\/keywords>/m,
+      );
       if (match) {
-        const keywordTags = match[0].match(/<keyword>([^<]+)<\/keyword>/g);
+        const keywordTags = match[0].match(
+          /<keyword(?:\s+[^>]*)?>([^<]+)<\/keyword>/g,
+        );
         if (keywordTags) {
           return keywordTags.map((tag) =>
-            tag.replace(/<\/?keyword>/g, "").trim()
+            tag.replace(/<\/?keyword(?:\s+[^>]*)?>/g, "").trim()
           );
         }
       }
@@ -263,13 +267,15 @@ export class FilePatcher {
    * @returns Updated content
    */
   private patchKeywordsXml(content: string, keywords: string[]): string {
-    // Detect existing indentation
-    const existingMatch = content.match(/^(\s*)<keywords>/m);
+    // Detect existing indentation and opening tag
+    const existingMatch = content.match(/^(\s*)(<keywords(?:\s+[^>]*)?>)/m);
     let baseIndent: string;
+    let openingTag = "<keywords>";
 
     if (existingMatch) {
-      // Use existing keywords indentation
+      // Use existing keywords indentation and tag
       baseIndent = existingMatch[1];
+      openingTag = existingMatch[2];
     } else {
       // Detect from other elements (try <name>, <summary>, or <component> children)
       const elementMatch = content.match(/^(\s*)<(?:name|summary|id)>/m);
@@ -286,10 +292,10 @@ export class FilePatcher {
       .join("\n");
 
     const keywordsSection =
-      `${baseIndent}<keywords>\n${keywordsXml}\n${baseIndent}</keywords>`;
+      `${baseIndent}${openingTag}\n${keywordsXml}\n${baseIndent}</keywords>`;
 
     // Check if <keywords> section already exists
-    const keywordsRegex = /^\s*<keywords>[\s\S]*?<\/keywords>/m;
+    const keywordsRegex = /^\s*<keywords(?:\s+[^>]*)?>[\s\S]*?<\/keywords>/m;
 
     if (keywordsRegex.test(content)) {
       // Replace existing keywords section

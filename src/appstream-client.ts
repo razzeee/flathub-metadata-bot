@@ -116,11 +116,11 @@ export class AppStreamClient {
           description = descriptionEl.innerHTML;
         }
 
-        const project_license = component.querySelector("project_license")
-          ?.textContent || undefined;
+        const project_license =
+          component.querySelector("project_license")?.textContent || undefined;
 
-        const developer_name = component.querySelector("developer_name")
-          ?.textContent || undefined;
+        const developer_name =
+          component.querySelector("developer_name")?.textContent || undefined;
 
         const urlElements = component.querySelectorAll("url");
         const urls: Record<string, string> = {};
@@ -136,8 +136,8 @@ export class AppStreamClient {
         let keywords: string[] | undefined;
         if (keywordsEl) {
           keywords = Array.from(keywordsEl.querySelectorAll("keyword"))
-            .map((k: unknown) =>
-              (k as { textContent: string | null }).textContent
+            .map(
+              (k: unknown) => (k as { textContent: string | null }).textContent,
             )
             .filter((k): k is string => k !== null);
         }
@@ -147,8 +147,8 @@ export class AppStreamClient {
         let categories: string[] | undefined;
         if (categoriesEl) {
           categories = Array.from(categoriesEl.querySelectorAll("category"))
-            .map((c: unknown) =>
-              (c as { textContent: string | null }).textContent
+            .map(
+              (c: unknown) => (c as { textContent: string | null }).textContent,
             )
             .filter((c): c is string => c !== null);
         }
@@ -254,5 +254,112 @@ export class AppStreamClient {
     }
 
     return null;
+  }
+
+  /**
+   * Get all apps from the appstream catalogue
+   * @param filterTypes - Optional array of types to filter by (e.g., ["desktop", "console-application"])
+   * @returns Array of appstream data for all matching apps
+   */
+  async getAllApps(filterTypes?: string[]): Promise<AppstreamData[]> {
+    try {
+      const doc = await this.fetchAppstreamXml();
+      const components = doc.getElementsByTagName("component");
+      const apps: AppstreamData[] = [];
+
+      for (const component of components) {
+        const idElement = component.querySelector("id");
+        const appId = idElement?.textContent;
+
+        if (!appId) continue;
+
+        const type = component.getAttribute("type") || "desktop";
+
+        // Filter by type if specified
+        if (filterTypes && filterTypes.length > 0) {
+          const normalizedType = type.toLowerCase();
+          const normalizedFilters = filterTypes.map((t) => t.toLowerCase());
+          if (!normalizedFilters.includes(normalizedType)) {
+            continue;
+          }
+        }
+
+        const name = component.querySelector("name")?.textContent || "";
+        const summary = component.querySelector("summary")?.textContent || "";
+
+        // Handle description
+        const descriptionEl = component.querySelector("description");
+        let description = "";
+        if (descriptionEl) {
+          description = descriptionEl.innerHTML;
+        }
+
+        const project_license =
+          component.querySelector("project_license")?.textContent || undefined;
+
+        const developer_name =
+          component.querySelector("developer_name")?.textContent || undefined;
+
+        const urlElements = component.querySelectorAll("url");
+        const urls: Record<string, string> = {};
+        for (const url of urlElements) {
+          const urlType = url.getAttribute("type");
+          if (urlType && url.textContent) {
+            urls[urlType] = url.textContent;
+          }
+        }
+
+        // Keywords
+        const keywordsEl = component.querySelector("keywords");
+        let keywords: string[] | undefined;
+        if (keywordsEl) {
+          keywords = Array.from(keywordsEl.querySelectorAll("keyword"))
+            .map(
+              (k: unknown) => (k as { textContent: string | null }).textContent,
+            )
+            .filter((k): k is string => k !== null);
+        }
+
+        // Categories
+        const categoriesEl = component.querySelector("categories");
+        let categories: string[] | undefined;
+        if (categoriesEl) {
+          categories = Array.from(categoriesEl.querySelectorAll("category"))
+            .map(
+              (c: unknown) => (c as { textContent: string | null }).textContent,
+            )
+            .filter((c): c is string => c !== null);
+        }
+
+        // Icon
+        const iconEl = component.querySelector("icon[type='cached']");
+        const icon = iconEl?.textContent
+          ? `https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/${iconEl.textContent}`
+          : undefined;
+
+        const appData: AppstreamData = {
+          id: appId,
+          type: type as AppstreamData["type"],
+          name,
+          summary,
+          description,
+          project_license,
+          developer_name,
+          urls: Object.keys(urls).length > 0 ? urls : undefined,
+          keywords,
+          categories,
+          icon,
+          is_free_license: false,
+          bundle: { value: "", type: "" },
+          releases: [],
+        };
+
+        apps.push(appData as AppstreamData);
+      }
+
+      return apps;
+    } catch (error) {
+      throw new Error(`Error fetching all apps: ${error}`);
+    }
   }
 }
