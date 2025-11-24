@@ -68,7 +68,35 @@ export class FilePatcher {
       if (sizes.length > 1) {
         const gcd = (a: number, b: number): number =>
           b === 0 ? a : gcd(b, a % b);
-        indentSize = sizes.reduce((acc, size) => gcd(acc, size));
+        const calculatedGcd = sizes.reduce((acc, size) => gcd(acc, size));
+
+        // If GCD is 1 but 1 is not in sizes, it's likely mixed indentation
+        // In that case, prefer the most frequent size
+        if (calculatedGcd === 1 && !spaceCounts[1]) {
+          // Find most frequent size >= 2
+          let bestSize = 2;
+          let maxCount = 0;
+
+          for (const [sizeStr, count] of Object.entries(spaceCounts)) {
+            const size = Number(sizeStr);
+            if (size >= 2 && count > maxCount) {
+              maxCount = count;
+              bestSize = size;
+            } else if (size >= 2 && count === maxCount) {
+              // If tied, prefer 2 or 4
+              if (
+                (size === 2 || size === 4) &&
+                bestSize !== 2 &&
+                bestSize !== 4
+              ) {
+                bestSize = size;
+              }
+            }
+          }
+          indentSize = bestSize;
+        } else {
+          indentSize = calculatedGcd;
+        }
       }
 
       // Clamp to reasonable values
@@ -284,7 +312,18 @@ export class FilePatcher {
         : this.getIndent(content, null, 1);
     }
 
-    const contentIndent = this.getIndent(content, baseIndent, 1);
+    // Determine indentation unit
+    // If baseIndent looks like a standard indentation (2 or 4 spaces),
+    // prefer using that as the unit to ensure consistency with the sibling element.
+    let indentUnit = this.detectIndentation(content).unit;
+    if (baseIndent && /^[ ]+$/.test(baseIndent)) {
+      const len = baseIndent.length;
+      if (len === 2 || len === 4) {
+        indentUnit = baseIndent;
+      }
+    }
+
+    const contentIndent = baseIndent + indentUnit;
 
     // Generate keywords XML with proper indentation
     const keywordsXml = keywords
