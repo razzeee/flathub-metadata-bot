@@ -258,7 +258,7 @@ metadata-bot/
   - Reading project metadata
   - Creating merge requests
 
-- **Codeberg**: `repo` scope is required for:
+- **Codeberg**: `user:read` and `repository` (read/write) scopes are required for:
   - Reading repository metadata
   - Forking repositories
   - Creating pull requests

@@ -1105,7 +1105,12 @@ async function main() {
           ): Promise<void> => {
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               try {
-                await repoManager.pushBranch(repoPath, remote, branchName);
+                await repoManager.pushBranch(
+                  repoPath,
+                  remote,
+                  branchName,
+                  CODEBERG_TOKEN,
+                );
                 return;
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -1163,7 +1168,12 @@ async function main() {
 
             const forkRemoteUrl =
               `https://codeberg.org/${forkOwner}/${repo}.git`;
-            await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+            await repoManager.addRemote(
+              repoPath,
+              "fork",
+              forkRemoteUrl,
+              CODEBERG_TOKEN,
+            );
             console.log("🚚 Pushing branch to fork remote (with retries)...");
             await pushWithRetries("fork");
             console.log("✅ Pushed to fork");
@@ -1201,7 +1211,12 @@ async function main() {
               }
               const forkRemoteUrl =
                 `https://codeberg.org/${forkOwnerFallback}/${repo}.git`;
-              await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+              await repoManager.addRemote(
+                repoPath,
+                "fork",
+                forkRemoteUrl,
+                CODEBERG_TOKEN,
+              );
               await pushWithRetries("fork");
               headOverride = `${forkOwnerFallback}:${branchName}`;
               console.log("✅ Pushed to fork (fallback)");

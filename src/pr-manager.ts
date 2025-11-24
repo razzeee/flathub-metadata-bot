@@ -501,9 +501,13 @@ export class PRManager {
       method: "POST",
       headers: {
         Authorization: `token ${this.codebergToken}`,
+        "Content-Type": "application/json",
       },
     });
     if (!resp.ok) {
+      if (resp.status === 409) {
+        return await this.getCodebergUser();
+      }
       const txt = await resp.text();
       throw new Error(`Failed to fork Codeberg repo: ${resp.status} ${txt}`);
     }
