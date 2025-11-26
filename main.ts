@@ -29,12 +29,12 @@ const LLM_MODEL = env.LLM_MODEL || Deno.env.get("LLM_MODEL");
 const OLLAMA_BASE_URL = env.OLLAMA_BASE_URL || Deno.env.get("OLLAMA_BASE_URL");
 const GITHUB_TOKEN = env.GITHUB_TOKEN || Deno.env.get("GITHUB_TOKEN");
 const GITLAB_TOKEN = env.GITLAB_TOKEN || Deno.env.get("GITLAB_TOKEN");
-const GITLAB_GNOME_TOKEN = env.GITLAB_GNOME_TOKEN ||
-  Deno.env.get("GITLAB_GNOME_TOKEN");
-const GITLAB_KDE_TOKEN = env.GITLAB_KDE_TOKEN ||
-  Deno.env.get("GITLAB_KDE_TOKEN");
-const GITLAB_FREEDESKTOP_TOKEN = env.GITLAB_FREEDESKTOP_TOKEN ||
-  Deno.env.get("GITLAB_FREEDESKTOP_TOKEN");
+const GITLAB_GNOME_TOKEN =
+  env.GITLAB_GNOME_TOKEN || Deno.env.get("GITLAB_GNOME_TOKEN");
+const GITLAB_KDE_TOKEN =
+  env.GITLAB_KDE_TOKEN || Deno.env.get("GITLAB_KDE_TOKEN");
+const GITLAB_FREEDESKTOP_TOKEN =
+  env.GITLAB_FREEDESKTOP_TOKEN || Deno.env.get("GITLAB_FREEDESKTOP_TOKEN");
 const CODEBERG_TOKEN = env.CODEBERG_TOKEN || Deno.env.get("CODEBERG_TOKEN");
 const APPSTREAM_URL = env.APPSTREAM_URL || Deno.env.get("APPSTREAM_URL");
 
@@ -54,7 +54,7 @@ function getFlathubRepoUrl(appId: string): string {
 function promptForValue(metadataType: string): string {
   console.log("\n" + "=".repeat(60));
   const response = prompt(
-    `${metadataType}: (a)ccept, (r)egenerate, (s)kip, or (q)uit: `,
+    `${metadataType}: (a)ccept, (r)egenerate, (s)kip, or (q)uit: `
   );
   console.log("=".repeat(60));
 
@@ -114,34 +114,34 @@ async function main() {
   if (batchMode && appId) {
     console.error("Error: Cannot specify both --batch and an app ID");
     console.error(
-      "Use --batch for batch mode OR specify an app ID for single app mode",
+      "Use --batch for batch mode OR specify an app ID for single app mode"
     );
     Deno.exit(1);
   }
 
   if (!batchMode && !appId) {
     console.error(
-      "Usage: deno task dev [--mode <all|keywords|summary|description>] <app-id>",
+      "Usage: deno task dev [--mode <all|keywords|summary|description>] <app-id>"
     );
     console.error(
-      "   OR: deno task dev --batch [--skip-with-keywords] [--mode <mode>]",
+      "   OR: deno task dev --batch [--skip-with-keywords] [--mode <mode>]"
     );
     console.error("");
     console.error("Examples:");
     console.error("  Single app: deno task dev org.mozilla.Firefox");
     console.error(
-      "  Single app with mode: deno task dev --mode keywords org.mozilla.Firefox",
+      "  Single app with mode: deno task dev --mode keywords org.mozilla.Firefox"
     );
     console.error("  Batch mode: deno task dev --batch");
     console.error(
-      "  Batch mode (skip apps with keywords): deno task dev --batch --skip-with-keywords",
+      "  Batch mode (skip apps with keywords): deno task dev --batch --skip-with-keywords"
     );
     console.error(
-      "  Batch mode (keywords only): deno task dev --batch --mode keywords",
+      "  Batch mode (keywords only): deno task dev --batch --mode keywords"
     );
     console.error("\nModes:");
     console.error(
-      "  all          - Generate keywords, summary, and description (default)",
+      "  all          - Generate keywords, summary, and description (default)"
     );
     console.error("  keywords     - Generate keywords only");
     console.error("  summary      - Generate app summary only");
@@ -166,7 +166,7 @@ async function main() {
     console.log(`   LLM Provider: ${LLM_PROVIDER}`);
     if (LLM_PROVIDER === "ollama") {
       console.log(
-        `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`,
+        `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`
       );
       console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
     } else {
@@ -217,27 +217,27 @@ async function main() {
     if (batchMode) {
       console.log("\n" + "=".repeat(80));
       console.log(
-        `📦 Processing ${appId} (${appIndex + 1}/${appsToIterate.length})`,
+        `📦 Processing ${appId} (${appIndex + 1}/${appsToIterate.length})`
       );
       console.log("=".repeat(80) + "\n");
-    }
-
-    // Single app mode continues below (or current app in batch)
-    console.log(`\n🚀 Processing app: ${appId}`);
-    console.log(`   Mode: ${mode}`);
-    console.log(`   LLM Provider: ${LLM_PROVIDER}`);
-    if (LLM_PROVIDER === "ollama") {
-      console.log(
-        `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`,
-      );
-      console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
     } else {
-      console.log(`   Model: ${LLM_MODEL || "gpt-4o-mini"}`);
+      // Single app mode - show configuration
+      console.log(`\n🚀 Processing app: ${appId}`);
+      console.log(`   Mode: ${mode}`);
+      console.log(`   LLM Provider: ${LLM_PROVIDER}`);
+      if (LLM_PROVIDER === "ollama") {
+        console.log(
+          `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`
+        );
+        console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
+      } else {
+        console.log(`   Model: ${LLM_MODEL || "gpt-4o-mini"}`);
+      }
+      if (APPSTREAM_URL) {
+        console.log(`   AppStream URL: ${APPSTREAM_URL}`);
+      }
+      console.log();
     }
-    if (APPSTREAM_URL) {
-      console.log(`   AppStream URL: ${APPSTREAM_URL}`);
-    }
-    console.log();
 
     try {
       // Step 1: Fetch appstream data
@@ -267,7 +267,7 @@ async function main() {
         try {
           const path = await repoManagerProbe.cloneRepository(
             flathubRepoUrlProbe,
-            `${appId}_probe_flathub`,
+            `${appId}_probe_flathub`
           );
           const files = await repoManagerProbe.findMetadataFiles(path, appId!);
           if (files.length > 0) {
@@ -285,11 +285,11 @@ async function main() {
             try {
               const path = await repoManagerProbe.cloneRepository(
                 upstreamUrl,
-                `${appId}_probe_upstream`,
+                `${appId}_probe_upstream`
               );
               const files = await repoManagerProbe.findMetadataFiles(
                 path,
-                appId!,
+                appId!
               );
               if (files.length > 0) {
                 probeRepoPath = path;
@@ -327,12 +327,12 @@ async function main() {
                 }
               } else {
                 const kBlock = c.match(
-                  /<keywords(?:\s+[^>]*)?>([\s\S]*?)<\/keywords>/,
+                  /<keywords(?:\s+[^>]*)?>([\s\S]*?)<\/keywords>/
                 );
                 if (kBlock) {
                   const kw = [
                     ...kBlock[1].matchAll(
-                      /<keyword(?:\s+[^>]*)?>([\s\S]*?)<\/keyword>/g,
+                      /<keyword(?:\s+[^>]*)?>([\s\S]*?)<\/keyword>/g
                     ),
                   ]
                     .map((m) => m[1].trim())
@@ -351,14 +351,14 @@ async function main() {
           existing.summary = appstream.summary;
         }
         if (!existing.description && (appstream as AppstreamData).description) {
-          existing.description = (appstream as AppstreamData).description ||
-            undefined;
+          existing.description =
+            (appstream as AppstreamData).description || undefined;
         }
       } catch (e) {
         console.warn(
           `⚠️  Could not extract existing metadata for comparison: ${
             e instanceof Error ? e.message : e
-          }`,
+          }`
         );
       }
 
@@ -427,7 +427,7 @@ async function main() {
           console.log("\n🔎 Existing summary:");
           if (existing.summary) {
             console.log(
-              `   "${existing.summary}" (${existing.summary.length} chars)`,
+              `   "${existing.summary}" (${existing.summary.length} chars)`
             );
           } else {
             console.log("   (none found)");
@@ -439,7 +439,7 @@ async function main() {
           console.log(`   "${summary}"`);
           if (summary.length > 35) {
             console.warn(
-              `   ⚠️  Warning: Summary exceeds 35 characters (${summary.length})`,
+              `   ⚠️  Warning: Summary exceeds 35 characters (${summary.length})`
             );
           }
 
@@ -479,7 +479,7 @@ async function main() {
           description = await metadataGenerator.generateDescription(appstream);
 
           console.log(
-            `✅ Generated description (${description.length} chars):`,
+            `✅ Generated description (${description.length} chars):`
           );
           const lines = description.split("\n");
           lines.forEach((line) => console.log(`   ${line}`));
@@ -520,11 +520,9 @@ async function main() {
       if (acceptedMetadata.keywords) {
         acceptedItems.push(`Keywords: ${keywords.join(", ")}`);
         acceptedChanges.push(
-          `### 🏷️ Keywords\n\n\`\`\`\n${
-            keywords
-              .map((k: string) => `- ${k}`)
-              .join("\n")
-          }\n\`\`\``,
+          `### 🏷️ Keywords\n\n\`\`\`\n${keywords
+            .map((k: string) => `- ${k}`)
+            .join("\n")}\n\`\`\``
         );
       }
       if (acceptedMetadata.summary) {
@@ -534,23 +532,19 @@ async function main() {
       if (acceptedMetadata.description) {
         acceptedItems.push(`Description: Updated`);
         acceptedChanges.push(
-          `### 📝 Description\n\n\`\`\`xml\n${description}\n\`\`\``,
+          `### 📝 Description\n\n\`\`\`xml\n${description}\n\`\`\``
         );
       }
 
-      const commitMessage =
-        `Update metadata for ${appId}\n\nAutomatically generated:\n${
-          acceptedItems
-            .map((item) => `- ${item}`)
-            .join("\n")
-        }`;
+      const commitMessage = `Update metadata for ${appId}\n\nAutomatically generated:\n${acceptedItems
+        .map((item) => `- ${item}`)
+        .join("\n")}`;
       const prTitle = `Update metadata for ${appId}`;
-      const prDescription =
-        `This PR updates the metadata to improve discoverability and user experience for **${appstream.name}**.\n\n---\n\n${
-          acceptedChanges.join(
-            "\n\n---\n\n",
-          )
-        }\n\n---\n\n*Generated by Metadata Bot 🤖*`;
+      const prDescription = `This PR updates the metadata to improve discoverability and user experience for **${
+        appstream.name
+      }**.\n\n---\n\n${acceptedChanges.join(
+        "\n\n---\n\n"
+      )}\n\n---\n\n*Generated by Metadata Bot 🤖*`;
 
       // User accepted at least one value, proceed with repo operations
       const repoManager = new RepositoryManager();
@@ -567,19 +561,19 @@ async function main() {
       try {
         const flathubRepoPath = await repoManager.cloneRepository(
           flathubRepoUrl,
-          `${appId}_flathub`,
+          `${appId}_flathub`
         );
         console.log(`✅ Cloned Flathub repo to: ${flathubRepoPath}`);
 
         console.log("\n🔍 Searching for metadata files in Flathub repo...");
         metadataFiles = await repoManager.findMetadataFiles(
           flathubRepoPath,
-          appId!,
+          appId!
         );
 
         if (metadataFiles.length > 0) {
           console.log(
-            `✅ Found ${metadataFiles.length} file(s) in Flathub repo:`,
+            `✅ Found ${metadataFiles.length} file(s) in Flathub repo:`
           );
           metadataFiles.forEach((file) => {
             const templateLabel = file.isTemplate ? " [template]" : "";
@@ -595,7 +589,7 @@ async function main() {
         console.log(
           `⚠️  Could not access Flathub repo: ${
             error instanceof Error ? error.message : error
-          }`,
+          }`
         );
       }
 
@@ -604,7 +598,7 @@ async function main() {
         const upstreamRepoUrl = appStreamClient.getRepositoryUrl(appstream);
         if (!upstreamRepoUrl) {
           console.error(
-            "\n❌ No upstream repository URL found in appstream data",
+            "\n❌ No upstream repository URL found in appstream data"
           );
           throw new Error("No upstream repository URL found");
         }
@@ -612,14 +606,14 @@ async function main() {
         console.log(`\n📦 Trying upstream repository: ${upstreamRepoUrl}`);
         const upstreamRepoPath = await repoManager.cloneRepository(
           upstreamRepoUrl,
-          `${appId}_upstream`,
+          `${appId}_upstream`
         );
         console.log(`✅ Cloned to: ${upstreamRepoPath}`);
 
         console.log("\n🔍 Searching for metadata files in upstream repo...");
         metadataFiles = await repoManager.findMetadataFiles(
           upstreamRepoPath,
-          appId!,
+          appId!
         );
 
         if (metadataFiles.length === 0) {
@@ -640,7 +634,7 @@ async function main() {
       console.log(
         `\n📍 Using ${
           isFlathubRepo ? "Flathub" : "upstream"
-        } repository for changes`,
+        } repository for changes`
       );
 
       // Step 5: Patch files with accepted metadata
@@ -649,7 +643,7 @@ async function main() {
 
       // Check if we have appstream XML files (prioritize them over .desktop files)
       const hasAppstreamFiles = metadataFiles.some(
-        (file) => file.type === "metainfo" || file.type === "appdata",
+        (file) => file.type === "metainfo" || file.type === "appdata"
       );
 
       // For keywords: determine where they already exist to know where to patch
@@ -661,11 +655,9 @@ async function main() {
 
         if (keywordLocations.length > 0) {
           console.log(
-            `\n🔍 Found existing keywords in: ${
-              keywordLocations
-                .map((t) => (t === "desktop" ? ".desktop" : `.${t}.xml`))
-                .join(", ")
-            }`,
+            `\n🔍 Found existing keywords in: ${keywordLocations
+              .map((t) => (t === "desktop" ? ".desktop" : `.${t}.xml`))
+              .join(", ")}`
           );
         } else {
           // No existing keywords - prefer XML files if available
@@ -686,18 +678,18 @@ async function main() {
             shouldPatchKeywords = keywordLocations.includes(file.type);
             if (!shouldPatchKeywords) {
               console.log(
-                `   ⏭️  Skipped keywords for ${file.path} (keywords exist elsewhere)`,
+                `   ⏭️  Skipped keywords for ${file.path} (keywords exist elsewhere)`
               );
             }
           } else {
             // No existing keywords - prefer XML files, fallback to .desktop
             if (hasAppstreamFiles) {
               // Only patch XML files if they exist
-              shouldPatchKeywords = file.type === "metainfo" ||
-                file.type === "appdata";
+              shouldPatchKeywords =
+                file.type === "metainfo" || file.type === "appdata";
               if (file.type === "desktop") {
                 console.log(
-                  `   ⏭️  Skipped keywords for ${file.path} (appstream file exists)`,
+                  `   ⏭️  Skipped keywords for ${file.path} (appstream file exists)`
                 );
               }
             } else {
@@ -761,7 +753,7 @@ async function main() {
       const prManager = new PRManager(
         GITHUB_TOKEN,
         gitlabTokens,
-        CODEBERG_TOKEN,
+        CODEBERG_TOKEN
       );
 
       // Detect platform
@@ -786,7 +778,7 @@ async function main() {
             console.warn(
               `⚠️  Could not determine GitHub user: ${
                 e instanceof Error ? e.message : e
-              }`,
+              }`
             );
           }
 
@@ -795,12 +787,12 @@ async function main() {
             forkOwner: string,
             repo: string,
             attempts = 10,
-            intervalMs = 2000,
+            intervalMs = 2000
           ) => {
             for (let i = 0; i < attempts; i++) {
               try {
                 const meta = await prManager.getGitHubRepoMetadata(
-                  `https://github.com/${forkOwner}/${repo}`,
+                  `https://github.com/${forkOwner}/${repo}`
                 );
                 if (meta.default_branch) return true;
               } catch (_) {
@@ -814,7 +806,7 @@ async function main() {
           // Helper: push with retries (for transient 503 or not found)
           const pushWithRetries = async (
             remote: string,
-            maxAttempts = 5,
+            maxAttempts = 5
           ): Promise<void> => {
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               try {
@@ -824,12 +816,12 @@ async function main() {
                 const msg = err instanceof Error ? err.message : String(err);
                 if (attempt === maxAttempts) {
                   throw new Error(
-                    `Failed to push after ${maxAttempts} attempts: ${msg}`,
+                    `Failed to push after ${maxAttempts} attempts: ${msg}`
                   );
                 }
                 const backoff = attempt * 2000;
                 console.warn(
-                  `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`,
+                  `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`
                 );
                 await new Promise((r) => setTimeout(r, backoff));
               }
@@ -845,7 +837,7 @@ async function main() {
             console.warn(
               `⚠️  Could not fetch default branch, falling back to 'main': ${
                 e instanceof Error ? e.message : e
-              }`,
+              }`
             );
           }
 
@@ -854,18 +846,18 @@ async function main() {
 
           if (userLogin && userLogin !== owner) {
             console.log(
-              "\n🔀 Forking upstream repository (no direct push rights)...",
+              "\n🔀 Forking upstream repository (no direct push rights)..."
             );
             let forkOwner = userLogin;
             try {
-              forkOwner = (await prManager.forkGitHubRepo(repoUrl)) ||
-                userLogin;
+              forkOwner =
+                (await prManager.forkGitHubRepo(repoUrl)) || userLogin;
               console.log(`✅ Fork available under: ${forkOwner}`);
             } catch (forkErr) {
               console.error(
                 `❌ Fork failed: ${
                   forkErr instanceof Error ? forkErr.message : forkErr
-                }`,
+                }`
               );
               throw forkErr;
             }
@@ -874,7 +866,7 @@ async function main() {
             const ready = await waitForForkReady(forkOwner, repo);
             if (!ready) {
               console.warn(
-                "⚠️  Fork readiness timeout, attempting push anyway...",
+                "⚠️  Fork readiness timeout, attempting push anyway..."
               );
             }
 
@@ -894,28 +886,28 @@ async function main() {
               console.warn(
                 `⚠️  Direct push failed (${
                   directErr instanceof Error ? directErr.message : directErr
-                }). Attempting fork...`,
+                }). Attempting fork...`
               );
               let forkOwnerFallback = userLogin || owner;
               try {
-                forkOwnerFallback = (await prManager.forkGitHubRepo(repoUrl)) ||
+                forkOwnerFallback =
+                  (await prManager.forkGitHubRepo(repoUrl)) ||
                   forkOwnerFallback;
                 console.log(`✅ Fork created: ${forkOwnerFallback}`);
               } catch (forkErr) {
                 throw new Error(
                   `Failed to push branch & fork: ${
                     forkErr instanceof Error ? forkErr.message : forkErr
-                  }`,
+                  }`
                 );
               }
               const ready = await waitForForkReady(forkOwnerFallback, repo);
               if (!ready) {
                 console.warn(
-                  "⚠️  Fork readiness timeout, attempting push anyway...",
+                  "⚠️  Fork readiness timeout, attempting push anyway..."
                 );
               }
-              const forkRemoteUrl =
-                `https://github.com/${forkOwnerFallback}/${repo}.git`;
+              const forkRemoteUrl = `https://github.com/${forkOwnerFallback}/${repo}.git`;
               await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
               await pushWithRetries("fork");
               headOverride = `${forkOwnerFallback}:${branchName}`;
@@ -931,7 +923,7 @@ async function main() {
           console.error(
             `❌ GitHub push workflow failed: ${
               err instanceof Error ? err.message : err
-            }`,
+            }`
           );
         }
       } else if (platform === "gitlab" && gitlabTokens.size > 0) {
@@ -943,10 +935,10 @@ async function main() {
         } = prManager.parseRepoUrl(repoUrl);
         if (!gitlabTokens.has(hostname)) {
           console.warn(
-            `⚠️  No GitLab token configured for ${hostname}. Skipping push.`,
+            `⚠️  No GitLab token configured for ${hostname}. Skipping push.`
           );
           console.log(
-            `\nTo push to this GitLab instance, set the appropriate token:`,
+            `\nTo push to this GitLab instance, set the appropriate token:`
           );
           console.log(`  - gitlab.com: GITLAB_TOKEN`);
           console.log(`  - gitlab.gnome.org: GITLAB_GNOME_TOKEN`);
@@ -962,7 +954,7 @@ async function main() {
               console.warn(
                 `⚠️  Could not determine GitLab user: ${
                   e instanceof Error ? e.message : e
-                }`,
+                }`
               );
             }
 
@@ -971,12 +963,12 @@ async function main() {
               forkOwner: string,
               repo: string,
               attempts = 10,
-              intervalMs = 2000,
+              intervalMs = 2000
             ) => {
               for (let i = 0; i < attempts; i++) {
                 try {
                   const meta = await prManager.getGitLabRepoMetadata(
-                    `https://${hostname}/${forkOwner}/${repo}`,
+                    `https://${hostname}/${forkOwner}/${repo}`
                   );
                   if (meta.default_branch) return true;
                 } catch (_) {
@@ -990,7 +982,7 @@ async function main() {
             // Helper: push with retries
             const pushWithRetries = async (
               remote: string,
-              maxAttempts = 5,
+              maxAttempts = 5
             ): Promise<void> => {
               for (let attempt = 1; attempt <= maxAttempts; attempt++) {
                 try {
@@ -998,19 +990,19 @@ async function main() {
                     repoPath,
                     remote,
                     branchName,
-                    gitlabToken,
+                    gitlabToken
                   );
                   return;
                 } catch (err) {
                   const msg = err instanceof Error ? err.message : String(err);
                   if (attempt === maxAttempts) {
                     throw new Error(
-                      `Failed to push after ${maxAttempts} attempts: ${msg}`,
+                      `Failed to push after ${maxAttempts} attempts: ${msg}`
                     );
                   }
                   const backoff = attempt * 2000;
                   console.warn(
-                    `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`,
+                    `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`
                   );
                   await new Promise((r) => setTimeout(r, backoff));
                 }
@@ -1021,14 +1013,14 @@ async function main() {
             console.log("\n🔀 Forking GitLab repository...");
             let forkOwner = userLogin;
             try {
-              forkOwner = (await prManager.forkGitLabRepo(repoUrl)) ||
-                userLogin;
+              forkOwner =
+                (await prManager.forkGitLabRepo(repoUrl)) || userLogin;
               console.log(`✅ Fork available under: ${forkOwner}`);
             } catch (forkErr) {
               console.error(
                 `❌ Fork failed: ${
                   forkErr instanceof Error ? forkErr.message : forkErr
-                }`,
+                }`
               );
               throw forkErr;
             }
@@ -1037,17 +1029,16 @@ async function main() {
             const ready = await waitForForkReady(forkOwner, repo);
             if (!ready) {
               console.warn(
-                "⚠️  Fork readiness timeout, attempting push anyway...",
+                "⚠️  Fork readiness timeout, attempting push anyway..."
               );
             }
 
-            const forkRemoteUrl =
-              `https://${hostname}/${forkOwner}/${repo}.git`;
+            const forkRemoteUrl = `https://${hostname}/${forkOwner}/${repo}.git`;
             await repoManager.addRemote(
               repoPath,
               "fork",
               forkRemoteUrl,
-              gitlabToken,
+              gitlabToken
             );
             console.log("🚚 Pushing branch to fork remote (with retries)...");
             await pushWithRetries("fork");
@@ -1057,7 +1048,7 @@ async function main() {
             console.error(
               `❌ Failed to push to GitLab: ${
                 e instanceof Error ? e.message : e
-              }`,
+              }`
             );
             throw e;
           }
@@ -1073,7 +1064,7 @@ async function main() {
             console.warn(
               `⚠️  Could not determine Codeberg user: ${
                 e instanceof Error ? e.message : e
-              }`,
+              }`
             );
           }
 
@@ -1082,12 +1073,12 @@ async function main() {
             forkOwner: string,
             repo: string,
             attempts = 10,
-            intervalMs = 2000,
+            intervalMs = 2000
           ) => {
             for (let i = 0; i < attempts; i++) {
               try {
                 const meta = await prManager.getCodebergRepoMetadata(
-                  `https://codeberg.org/${forkOwner}/${repo}`,
+                  `https://codeberg.org/${forkOwner}/${repo}`
                 );
                 if (meta.default_branch) return true;
               } catch (_) {
@@ -1101,7 +1092,7 @@ async function main() {
           // Helper: push with retries
           const pushWithRetries = async (
             remote: string,
-            maxAttempts = 5,
+            maxAttempts = 5
           ): Promise<void> => {
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               try {
@@ -1109,19 +1100,19 @@ async function main() {
                   repoPath,
                   remote,
                   branchName,
-                  CODEBERG_TOKEN,
+                  CODEBERG_TOKEN
                 );
                 return;
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
                 if (attempt === maxAttempts) {
                   throw new Error(
-                    `Failed to push after ${maxAttempts} attempts: ${msg}`,
+                    `Failed to push after ${maxAttempts} attempts: ${msg}`
                   );
                 }
                 const backoff = attempt * 2000;
                 console.warn(
-                  `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`,
+                  `⚠️  Push attempt ${attempt} failed (${msg}). Retrying in ${backoff}ms...`
                 );
                 await new Promise((r) => setTimeout(r, backoff));
               }
@@ -1137,24 +1128,24 @@ async function main() {
             console.warn(
               `⚠️  Could not fetch default branch, falling back to 'main': ${
                 e instanceof Error ? e.message : e
-              }`,
+              }`
             );
           }
 
           if (userLogin && userLogin !== owner) {
             console.log(
-              "\n🔀 Forking upstream repository (no direct push rights)...",
+              "\n🔀 Forking upstream repository (no direct push rights)..."
             );
             let forkOwner = userLogin;
             try {
-              forkOwner = (await prManager.forkCodebergRepo(repoUrl)) ||
-                userLogin;
+              forkOwner =
+                (await prManager.forkCodebergRepo(repoUrl)) || userLogin;
               console.log(`✅ Fork available under: ${forkOwner}`);
             } catch (forkErr) {
               console.error(
                 `❌ Fork failed: ${
                   forkErr instanceof Error ? forkErr.message : forkErr
-                }`,
+                }`
               );
               throw forkErr;
             }
@@ -1162,17 +1153,16 @@ async function main() {
             const ready = await waitForForkReady(forkOwner, repo);
             if (!ready) {
               console.warn(
-                "⚠️  Fork readiness timeout, attempting push anyway...",
+                "⚠️  Fork readiness timeout, attempting push anyway..."
               );
             }
 
-            const forkRemoteUrl =
-              `https://codeberg.org/${forkOwner}/${repo}.git`;
+            const forkRemoteUrl = `https://codeberg.org/${forkOwner}/${repo}.git`;
             await repoManager.addRemote(
               repoPath,
               "fork",
               forkRemoteUrl,
-              CODEBERG_TOKEN,
+              CODEBERG_TOKEN
             );
             console.log("🚚 Pushing branch to fork remote (with retries)...");
             await pushWithRetries("fork");
@@ -1188,7 +1178,7 @@ async function main() {
               console.warn(
                 `⚠️  Direct push failed (${
                   directErr instanceof Error ? directErr.message : directErr
-                }). Attempting fork...`,
+                }). Attempting fork...`
               );
               let forkOwnerFallback = userLogin || owner;
               try {
@@ -1200,22 +1190,21 @@ async function main() {
                 throw new Error(
                   `Failed to push branch & fork: ${
                     forkErr instanceof Error ? forkErr.message : forkErr
-                  }`,
+                  }`
                 );
               }
               const ready = await waitForForkReady(forkOwnerFallback, repo);
               if (!ready) {
                 console.warn(
-                  "⚠️  Fork readiness timeout, attempting push anyway...",
+                  "⚠️  Fork readiness timeout, attempting push anyway..."
                 );
               }
-              const forkRemoteUrl =
-                `https://codeberg.org/${forkOwnerFallback}/${repo}.git`;
+              const forkRemoteUrl = `https://codeberg.org/${forkOwnerFallback}/${repo}.git`;
               await repoManager.addRemote(
                 repoPath,
                 "fork",
                 forkRemoteUrl,
-                CODEBERG_TOKEN,
+                CODEBERG_TOKEN
               );
               await pushWithRetries("fork");
               headOverride = `${forkOwnerFallback}:${branchName}`;
@@ -1226,7 +1215,7 @@ async function main() {
           console.error(
             `❌ Codeberg push workflow failed: ${
               err instanceof Error ? err.message : err
-            }`,
+            }`
           );
         }
       }
@@ -1241,17 +1230,17 @@ async function main() {
       // Check if using non-default AppStream URL with Flathub repository
       if (!appStreamClient.isUsingDefaultUrl() && isFlathubRepo) {
         console.log(
-          "\n⚠️  Cannot create PR: Using non-default AppStream URL with Flathub repository",
+          "\n⚠️  Cannot create PR: Using non-default AppStream URL with Flathub repository"
         );
         console.log(`   Current URL: ${APPSTREAM_URL || "custom URL"}`);
         console.log(
-          `   Default URL: https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz`,
+          `   Default URL: https://dl.flathub.org/repo/appstream/x86_64/appstream.xml.gz`
         );
         console.log(
-          "\n   PRs to Flathub repositories should only use the default AppStream data source.",
+          "\n   PRs to Flathub repositories should only use the default AppStream data source."
         );
         console.log(
-          `\n   Changes are ready in branch '${branchName}' at: ${repoPath}`,
+          `\n   Changes are ready in branch '${branchName}' at: ${repoPath}`
         );
         console.log("   You can manually review and push the changes.");
         console.log("\n✨ Done!\n");
@@ -1272,17 +1261,17 @@ async function main() {
         console.log(`\n⚠️  No ${platform.toUpperCase()} token configured`);
         console.log("Pull request creation skipped");
         console.log(
-          `\nTo create PRs automatically, set ${platform.toUpperCase()}_TOKEN`,
+          `\nTo create PRs automatically, set ${platform.toUpperCase()}_TOKEN`
         );
         console.log(
-          `\nChanges are ready in branch '${branchName}' at: ${repoPath}`,
+          `\nChanges are ready in branch '${branchName}' at: ${repoPath}`
         );
         console.log("You can manually push and create a PR");
       } else {
         // Ask user if they want to create a PR
         console.log("\n" + "=".repeat(60));
         const createPRResponse = prompt(
-          "Create pull request now? (y)es or (n)o: ",
+          "Create pull request now? (y)es or (n)o: "
         );
         console.log("=".repeat(60));
 
@@ -1293,7 +1282,7 @@ async function main() {
         ) {
           console.log("\n⏭️  Skipping pull request creation");
           console.log(
-            `\nChanges are ready in branch '${branchName}' at: ${repoPath}`,
+            `\nChanges are ready in branch '${branchName}' at: ${repoPath}`
           );
           console.log("You can manually create a PR when ready");
         } else {
@@ -1350,7 +1339,7 @@ async function main() {
   if (batchMode) {
     console.log("\n" + "=".repeat(80));
     console.log(
-      `✨ Batch processing complete! Processed ${appsToProcess.length} apps`,
+      `✨ Batch processing complete! Processed ${appsToProcess.length} apps`
     );
     console.log("=".repeat(80) + "\n");
   }
