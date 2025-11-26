@@ -83,6 +83,16 @@ export class BatchProcessor {
         continue;
       }
 
+      // Skip if app has no URLs (no repository to work with)
+      if (!app.urls || Object.keys(app.urls).length === 0) {
+        console.log(`⏭️  Skipping ${appId} (no URLs found)`);
+        if (this.onAppSkipped) {
+          this.onAppSkipped(appId, "no-urls");
+        }
+        skippedCount++;
+        continue;
+      }
+
       // Process the app
       try {
         console.log(`\n${"=".repeat(80)}`);
