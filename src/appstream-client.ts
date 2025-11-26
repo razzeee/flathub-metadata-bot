@@ -213,10 +213,10 @@ export class AppStreamClient {
       return null;
     }
 
-    // Priority order: vcs_browser, homepage, bugtracker
-    // vcs_browser is the most reliable for repository URLs
-    if (appstream.urls.vcs_browser) {
-      return appstream.urls.vcs_browser;
+    // Priority order: vcs-browser, homepage, bugtracker
+    // vcs-browser is the most reliable for repository URLs
+    if (appstream.urls["vcs-browser"]) {
+      return appstream.urls["vcs-browser"];
     }
 
     // Check homepage for common repository hosting patterns

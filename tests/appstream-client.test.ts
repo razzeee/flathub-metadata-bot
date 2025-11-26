@@ -24,16 +24,19 @@ Deno.test("AppStreamClient.getAppstream fetches and parses XML", async () => {
   assert(appstream.keywords.length > 0);
 });
 
-Deno.test("AppStreamClient.getAppstream throws for invalid app ID", async () => {
-  const client = new AppStreamClient();
-  await assertRejects(
-    async () => {
-      await client.getAppstream("org.invalid.AppId");
-    },
-    Error,
-    "not found in appstream XML",
-  );
-});
+Deno.test(
+  "AppStreamClient.getAppstream throws for invalid app ID",
+  async () => {
+    const client = new AppStreamClient();
+    await assertRejects(
+      async () => {
+        await client.getAppstream("org.invalid.AppId");
+      },
+      Error,
+      "not found in appstream XML"
+    );
+  }
+);
 
 Deno.test("getDescription returns description when present", () => {
   const mockAppstream: any = {
@@ -68,16 +71,16 @@ Deno.test("AppStreamClient uses custom URL", async () => {
       await client.getAppstream("org.mozilla.Firefox");
     },
     Error,
-    "error sending request",
+    "error sending request"
   );
 });
 
-Deno.test("AppStreamClient.getRepositoryUrl extracts vcs_browser", () => {
+Deno.test("AppStreamClient.getRepositoryUrl extracts vcs-browser", () => {
   const client = new AppStreamClient();
   const appstream = {
     name: "Test App",
     urls: {
-      vcs_browser: "https://github.com/test/repo",
+      "vcs-browser": "https://github.com/test/repo",
     },
   } as any;
 
@@ -85,28 +88,34 @@ Deno.test("AppStreamClient.getRepositoryUrl extracts vcs_browser", () => {
   assertEquals(url, "https://github.com/test/repo");
 });
 
-Deno.test("AppStreamClient.getRepositoryUrl extracts gitlab.gnome.org from homepage", () => {
-  const client = new AppStreamClient();
-  const appstream = {
-    name: "Test App",
-    urls: {
-      homepage: "https://gitlab.gnome.org/gnome/test-app",
-    },
-  } as any;
+Deno.test(
+  "AppStreamClient.getRepositoryUrl extracts gitlab.gnome.org from homepage",
+  () => {
+    const client = new AppStreamClient();
+    const appstream = {
+      name: "Test App",
+      urls: {
+        homepage: "https://gitlab.gnome.org/gnome/test-app",
+      },
+    } as any;
 
-  const url = client.getRepositoryUrl(appstream);
-  assertEquals(url, "https://gitlab.gnome.org/gnome/test-app");
-});
+    const url = client.getRepositoryUrl(appstream);
+    assertEquals(url, "https://gitlab.gnome.org/gnome/test-app");
+  }
+);
 
-Deno.test("AppStreamClient.getRepositoryUrl extracts invent.kde.org from bugtracker", () => {
-  const client = new AppStreamClient();
-  const appstream = {
-    name: "Test App",
-    urls: {
-      bugtracker: "https://invent.kde.org/kde/test-app/-/issues",
-    },
-  } as any;
+Deno.test(
+  "AppStreamClient.getRepositoryUrl extracts invent.kde.org from bugtracker",
+  () => {
+    const client = new AppStreamClient();
+    const appstream = {
+      name: "Test App",
+      urls: {
+        bugtracker: "https://invent.kde.org/kde/test-app/-/issues",
+      },
+    } as any;
 
-  const url = client.getRepositoryUrl(appstream);
-  assertEquals(url, "https://invent.kde.org/kde/test-app");
-});
+    const url = client.getRepositoryUrl(appstream);
+    assertEquals(url, "https://invent.kde.org/kde/test-app");
+  }
+);

@@ -21,7 +21,7 @@ export class BatchProcessor {
   private autoMarkProcessed: boolean;
   private onAppProcess?: (
     appId: string,
-    appstream: AppstreamData
+    appstream: AppstreamData,
   ) => Promise<void>;
   private onAppSkipped?: (appId: string, reason: string) => void;
   private onAppError?: (appId: string, error: Error) => void;
@@ -74,7 +74,7 @@ export class BatchProcessor {
       // Skip if has keywords and flag is set
       if (this.skipWithKeywords && app.keywords && app.keywords.length > 0) {
         console.log(
-          `⏭️  Skipping ${appId} (has ${app.keywords.length} keywords)`
+          `⏭️  Skipping ${appId} (has ${app.keywords.length} keywords)`,
         );
         if (this.onAppSkipped) {
           this.onAppSkipped(appId, "has-keywords");
@@ -127,7 +127,7 @@ export class BatchProcessor {
     console.log(`Skipped: ${skippedCount}`);
     console.log(`Errors: ${errorCount}`);
     console.log(
-      `Total processed (all time): ${this.progressTracker.getProcessedCount()}`
+      `Total processed (all time): ${this.progressTracker.getProcessedCount()}`,
     );
     console.log("=".repeat(80) + "\n");
   }
