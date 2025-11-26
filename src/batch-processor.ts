@@ -83,11 +83,12 @@ export class BatchProcessor {
         continue;
       }
 
-      // Skip if app has no URLs (no repository to work with)
-      if (!app.urls || Object.keys(app.urls).length === 0) {
-        console.log(`⏭️  Skipping ${appId} (no URLs found)`);
+      // Skip if we can't extract a repository URL
+      const repositoryUrl = this.appStreamClient.getRepositoryUrl(app);
+      if (!repositoryUrl) {
+        console.log(`⏭️  Skipping ${appId} (no repository URL found)`);
         if (this.onAppSkipped) {
-          this.onAppSkipped(appId, "no-urls");
+          this.onAppSkipped(appId, "no-repository");
         }
         skippedCount++;
         continue;
