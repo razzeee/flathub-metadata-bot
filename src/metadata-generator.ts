@@ -132,7 +132,7 @@ SEO-FOCUSED GUIDELINES:
 - Avoid duplicating existing categories
 - Include platform-specific terms only when highly relevant
 - No special characters or punctuation
-- Do not use hyphens in keywords
+- Do not use hyphens or underscores in keywords
 
 
 SEARCH INTENT FOCUS:
@@ -195,7 +195,7 @@ Return ONLY the comma-separated keywords with NO other text.`;
         .map((k: string) => k.trim().toLowerCase())
         .map((k: string) => k.replace(/^[-•*]\s*/, "")) // Remove bullet points
         .map((k: string) => k.replace(/\.$/, "")) // Remove trailing periods
-        .map((k: string) => k.replace(/-/g, " ")) // Replace hyphens with spaces
+        .map((k: string) => k.replace(/[-_]/g, " ")) // Replace hyphens and underscores with spaces
         .filter((k: string) => k.length > 0)
         .filter((k: string) => k.length < 50) // Filter out sentences (likely preamble)
         .filter((k: string) => !k.includes("here are")) // Filter out preamble
