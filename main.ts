@@ -75,6 +75,100 @@ function promptForValue(metadataType: string): string {
   return "regenerate";
 }
 
+/**
+ * Interactive keyword management prompt
+ * Allows user to reroll, add, remove individual keywords
+ * Returns: { action: 'accept' | 'regenerate' | 'skip' | 'reroll' | 'add' | 'delete', data?: any }
+ */
+function promptKeywordManagement(keywords: string[]): {
+  action: string;
+  data?: any;
+} {
+  console.log("\n" + "=".repeat(60));
+  console.log("Keyword Management:");
+  console.log("  (a)ccept       - Accept current keywords");
+  console.log("  (r)eroll #     - Regenerate keyword at position #");
+  console.log("  (add) text     - Add a new keyword");
+  console.log("  (d)elete #     - Remove keyword at position #");
+  console.log("  (g)enerate     - Regenerate all keywords");
+  console.log("  (s)kip         - Skip keywords");
+  console.log("  (q)uit         - Quit");
+  console.log("=".repeat(60));
+
+  const response = prompt("Action: ");
+  console.log("=".repeat(60));
+
+  if (response === null || response.toLowerCase().trim() === "q") {
+    console.log("\n👋 Cancelled by user");
+    Deno.exit(0);
+  }
+
+  const input = response.trim();
+  const normalized = input.toLowerCase();
+
+  // Accept
+  if (normalized === "a" || normalized === "accept") {
+    return { action: "accept" };
+  }
+
+  // Skip
+  if (normalized === "s" || normalized === "skip") {
+    return { action: "skip" };
+  }
+
+  // Regenerate all
+  if (normalized === "g" || normalized === "generate") {
+    return { action: "regenerate" };
+  }
+
+  // Reroll specific keyword: r 3 or reroll 3
+  if (normalized.startsWith("r ") || normalized.startsWith("reroll ")) {
+    const parts = input.split(/\s+/);
+    if (parts.length >= 2) {
+      const index = parseInt(parts[1], 10);
+      if (isNaN(index) || index < 1 || index > keywords.length) {
+        console.log(
+          `❌ Invalid index. Please use a number between 1 and ${keywords.length}`,
+        );
+        return { action: "invalid" };
+      }
+      return { action: "reroll", data: index - 1 }; // Convert to 0-based index
+    }
+    console.log("❌ Invalid format. Use: r <number>");
+    return { action: "invalid" };
+  }
+
+  // Delete keyword: d 2 or delete 2
+  if (normalized.startsWith("d ") || normalized.startsWith("delete ")) {
+    const parts = input.split(/\s+/);
+    if (parts.length >= 2) {
+      const index = parseInt(parts[1], 10);
+      if (isNaN(index) || index < 1 || index > keywords.length) {
+        console.log(
+          `❌ Invalid index. Please use a number between 1 and ${keywords.length}`,
+        );
+        return { action: "invalid" };
+      }
+      return { action: "delete", data: index - 1 }; // Convert to 0-based index
+    }
+    console.log("❌ Invalid format. Use: d <number>");
+    return { action: "invalid" };
+  }
+
+  // Add keyword: add browser or add web browser
+  if (normalized.startsWith("add ")) {
+    const keyword = input.substring(4).trim();
+    if (keyword.length === 0) {
+      console.log("❌ Please provide a keyword to add");
+      return { action: "invalid" };
+    }
+    return { action: "add", data: keyword };
+  }
+
+  console.log("❌ Invalid input. Please try again.");
+  return { action: "invalid" };
+}
+
 async function main() {
   // Parse command line arguments
   const args = Deno.args;
@@ -386,37 +480,95 @@ async function main() {
 
       // Generate keywords if needed
       if (mode === "all" || mode === "keywords") {
-        let keywordDecision = "";
-        while (keywordDecision !== "accept" && keywordDecision !== "skip") {
-          console.log("\n🔎 Existing keywords:");
-          if (existing.keywords && existing.keywords.length) {
-            existing.keywords.forEach((k, i) =>
-              console.log(`   ${i + 1}. ${k}`)
-            );
-          } else {
-            console.log("   (none found)");
-          }
-          console.log("\n📝 Generating keywords...");
-          keywords = await metadataGenerator.generateKeywords(appstream);
+        let managementComplete = false;
 
-          if (keywords.length === 0) {
-            console.error("\n❌ No keywords were generated!");
-            console.error("The AI did not produce any valid keywords.");
-            console.error("Please try again or check your LLM configuration.");
-            throw new Error("No keywords generated");
-          }
+        // Initial generation
+        console.log("\n🔎 Existing keywords:");
+        if (existing.keywords && existing.keywords.length) {
+          existing.keywords.forEach((k, i) => console.log(`   ${i + 1}. ${k}`));
+        } else {
+          console.log("   (none found)");
+        }
+        console.log("\n📝 Generating keywords...");
+        keywords = await metadataGenerator.generateKeywords(appstream);
 
-          console.log(`✅ Generated ${keywords.length} keywords:`);
+        if (keywords.length === 0) {
+          console.error("\n❌ No keywords were generated!");
+          console.error("The AI did not produce any valid keywords.");
+          console.error("Please try again or check your LLM configuration.");
+          throw new Error("No keywords generated");
+        }
+
+        // Interactive management loop
+        while (!managementComplete) {
+          console.log(`\n✅ Current keywords (${keywords.length}):`);
           keywords.forEach((k, i) => console.log(`   ${i + 1}. ${k}`));
 
-          keywordDecision = promptForValue("Keywords");
-          if (keywordDecision === "accept") {
+          const decision = promptKeywordManagement(keywords);
+
+          if (decision.action === "accept") {
             acceptedMetadata.keywords = true;
-          } else if (keywordDecision === "skip") {
+            managementComplete = true;
+          } else if (decision.action === "skip") {
             console.log("⏭️  Skipping keywords");
-          } else {
-            console.log("🔄 Regenerating keywords...");
+            managementComplete = true;
+          } else if (decision.action === "regenerate") {
+            console.log("\n🔄 Regenerating all keywords...");
+            keywords = await metadataGenerator.generateKeywords(appstream);
+            if (keywords.length === 0) {
+              console.error("\n❌ No keywords were generated!");
+              console.error("The AI did not produce any valid keywords.");
+              console.error(
+                "Please try again or check your LLM configuration.",
+              );
+              throw new Error("No keywords generated");
+            }
+          } else if (decision.action === "reroll") {
+            const index = decision.data;
+            console.log(
+              `\n🔄 Regenerating keyword at position ${index + 1}...`,
+            );
+            // Generate a few keywords and pick the first one
+            const newKeywords = await metadataGenerator.generateKeywords(
+              appstream,
+            );
+            if (newKeywords.length > 0) {
+              const oldKeyword = keywords[index];
+              keywords[index] = newKeywords[0];
+              console.log(
+                `   Replaced "${oldKeyword}" with "${newKeywords[0]}"`,
+              );
+            } else {
+              console.error("❌ Failed to generate replacement keyword");
+            }
+          } else if (decision.action === "add") {
+            const newKeyword = decision.data;
+            // Check for duplicates (case-insensitive)
+            const lowerKeywords = keywords.map((k) => k.toLowerCase());
+            if (lowerKeywords.includes(newKeyword.toLowerCase())) {
+              console.log(`⚠️  Keyword "${newKeyword}" already exists`);
+            } else {
+              keywords.push(newKeyword);
+              console.log(`✅ Added keyword: "${newKeyword}"`);
+            }
+          } else if (decision.action === "delete") {
+            const index = decision.data;
+            const deleted = keywords.splice(index, 1)[0];
+            console.log(`🗑️  Deleted keyword: "${deleted}"`);
+
+            // Check if we still have keywords
+            if (keywords.length === 0) {
+              console.log(
+                "\n⚠️  No keywords remaining. Generating new keywords...",
+              );
+              keywords = await metadataGenerator.generateKeywords(appstream);
+              if (keywords.length === 0) {
+                console.error("\n❌ No keywords were generated!");
+                throw new Error("No keywords generated");
+              }
+            }
           }
+          // If action was "invalid", loop continues
         }
       }
 
