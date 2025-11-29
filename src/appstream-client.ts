@@ -98,14 +98,56 @@ export class AppStreamClient {
     return doc;
   }
 
+  /**
+   * Get the default (non-localized) text content from elements that may have xml:lang variants.
+   * Prefers elements without xml:lang attribute, then falls back to first element.
+   */
+  private getDefaultText(
+    component: {
+      querySelectorAll(
+        selector: string,
+      ): ArrayLike<
+        {
+          getAttribute(name: string): string | null;
+          textContent: string | null;
+        }
+      >;
+    },
+    tagName: string,
+  ): string {
+    if (!component) return "";
+
+    const elements = component.querySelectorAll(tagName);
+    if (elements.length === 0) return "";
+
+    // First, try to find an element without xml:lang attribute (the default/C locale)
+    for (const el of Array.from(elements)) {
+      const lang = el.getAttribute("xml:lang");
+      if (!lang) {
+        return el.textContent || "";
+      }
+    }
+
+    // If all elements have xml:lang, prefer "C" or "en" locales
+    for (const el of Array.from(elements)) {
+      const lang = el.getAttribute("xml:lang");
+      if (lang === "C" || lang === "en") {
+        return el.textContent || "";
+      }
+    }
+
+    // Fall back to first element (shouldn't normally reach here)
+    return elements[0]?.textContent || "";
+  }
+
   private findAppInXml(doc: Document, appId: string): AppstreamData {
     const components = doc.getElementsByTagName("component");
     for (const component of components) {
       const idElement = component.querySelector("id");
       if (idElement?.textContent === appId) {
         const type = component.getAttribute("type") || "desktop";
-        const name = component.querySelector("name")?.textContent || "";
-        const summary = component.querySelector("summary")?.textContent || "";
+        const name = this.getDefaultText(component, "name");
+        const summary = this.getDefaultText(component, "summary");
 
         // Handle description (can be HTML-like)
         const descriptionEl = component.querySelector("description");
@@ -124,7 +166,7 @@ export class AppStreamClient {
           component.querySelector("project_license")?.textContent || undefined;
 
         const developer_name =
-          component.querySelector("developer_name")?.textContent || undefined;
+          this.getDefaultText(component, "developer_name") || undefined;
 
         const urlElements = component.querySelectorAll("url");
         const urls: Record<string, string> = {};
@@ -336,8 +378,8 @@ export class AppStreamClient {
           }
         }
 
-        const name = component.querySelector("name")?.textContent || "";
-        const summary = component.querySelector("summary")?.textContent || "";
+        const name = this.getDefaultText(component, "name");
+        const summary = this.getDefaultText(component, "summary");
 
         // Handle description
         const descriptionEl = component.querySelector("description");
@@ -350,7 +392,7 @@ export class AppStreamClient {
           component.querySelector("project_license")?.textContent || undefined;
 
         const developer_name =
-          component.querySelector("developer_name")?.textContent || undefined;
+          this.getDefaultText(component, "developer_name") || undefined;
 
         const urlElements = component.querySelectorAll("url");
         const urls: Record<string, string> = {};
