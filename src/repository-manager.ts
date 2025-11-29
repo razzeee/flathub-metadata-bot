@@ -99,6 +99,13 @@ export class RepositoryManager {
       "*.appdata.xml",
       "*.appdata.xml.in",
       "*.appdata.xml.in.in",
+      // Simplified generic patterns (without app ID prefix)
+      "metainfo.xml",
+      "metainfo.xml.in",
+      "metainfo.xml.in.in",
+      "appdata.xml",
+      "appdata.xml.in",
+      "appdata.xml.in.in",
     ];
 
     const foundPaths = new Set<string>();
