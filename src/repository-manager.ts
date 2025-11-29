@@ -132,9 +132,9 @@ export class RepositoryManager {
           const isTemplate = path.endsWith(".in");
 
           // Determine type based on filename
-          if (path.includes(".metainfo.xml")) {
+          if (path.includes("metainfo.xml")) {
             type = "metainfo";
-          } else if (path.includes(".appdata.xml")) {
+          } else if (path.includes("appdata.xml")) {
             type = "appdata";
           }
 
