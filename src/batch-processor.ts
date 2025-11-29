@@ -8,6 +8,7 @@ import { ProgressTracker } from "./progress-tracker.ts";
 export interface BatchProcessorOptions {
   appstreamUrl?: string;
   skipWithKeywords?: boolean;
+  skipWithBranding?: boolean;
   autoMarkProcessed?: boolean;
   onAppProcess?: (appId: string, appstream: AppstreamData) => Promise<void>;
   onAppSkipped?: (appId: string, reason: string) => void;
@@ -18,6 +19,7 @@ export class BatchProcessor {
   private appStreamClient: AppStreamClient;
   private progressTracker: ProgressTracker;
   private skipWithKeywords: boolean;
+  private skipWithBranding: boolean;
   private autoMarkProcessed: boolean;
   private onAppProcess?: (
     appId: string,
@@ -30,6 +32,7 @@ export class BatchProcessor {
     this.appStreamClient = new AppStreamClient(options.appstreamUrl);
     this.progressTracker = new ProgressTracker();
     this.skipWithKeywords = options.skipWithKeywords || false;
+    this.skipWithBranding = options.skipWithBranding || false;
     this.autoMarkProcessed = options.autoMarkProcessed ?? true;
     this.onAppProcess = options.onAppProcess;
     this.onAppSkipped = options.onAppSkipped;
@@ -78,6 +81,20 @@ export class BatchProcessor {
         );
         if (this.onAppSkipped) {
           this.onAppSkipped(appId, "has-keywords");
+        }
+        skippedCount++;
+        continue;
+      }
+
+      // Skip if has branding and flag is set
+      if (
+        this.skipWithBranding &&
+        app.branding &&
+        (app.branding.light || app.branding.dark)
+      ) {
+        console.log(`⏭️  Skipping ${appId} (has branding information)`);
+        if (this.onAppSkipped) {
+          this.onAppSkipped(appId, "has-branding");
         }
         skippedCount++;
         continue;

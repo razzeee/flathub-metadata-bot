@@ -15,6 +15,10 @@ export interface AppstreamData {
   keywords?: string[];
   categories?: string[];
   icon?: string;
+  branding?: {
+    light?: string;
+    dark?: string;
+  };
   is_free_license: boolean;
   bundle: { value: string; type: string };
   releases: unknown[];
@@ -161,6 +165,37 @@ export class AppStreamClient {
           ? `https://dl.flathub.org/repo/appstream/x86_64/icons/128x128/${iconEl.textContent}`
           : undefined;
 
+        // Branding
+        const brandingEl = component.querySelector("branding");
+        let branding: { light?: string; dark?: string } | undefined;
+        if (brandingEl) {
+          const colors = Array.from(brandingEl.querySelectorAll("color"));
+          let light: string | undefined;
+          let dark: string | undefined;
+
+          for (const colorNode of colors) {
+            const color = colorNode as unknown as {
+              getAttribute(name: string): string | null;
+              textContent: string | null;
+            };
+            const type = color.getAttribute("type");
+            const scheme = color.getAttribute("scheme_preference");
+            const value = color.textContent;
+
+            if (type === "primary" && value) {
+              if (scheme === "light") {
+                light = value;
+              } else if (scheme === "dark") {
+                dark = value;
+              }
+            }
+          }
+
+          if (light || dark) {
+            branding = { light, dark };
+          }
+        }
+
         // Construct the object matching AppstreamData (DesktopAppstream et al)
         // Note: This is a partial mapping. We might need more fields if the bot uses them.
         // Based on usage in main.ts: name, summary, description, keywords, urls (vcs_browser, homepage, bugtracker)
@@ -177,6 +212,7 @@ export class AppStreamClient {
           keywords,
           categories,
           icon,
+          branding,
           is_free_license: false, // Default, hard to determine from XML without license parsing logic
           bundle: { value: "", type: "" }, // Placeholder
           releases: [], // Placeholder
@@ -200,6 +236,18 @@ export class AppStreamClient {
     } catch (error) {
       throw new Error(`Error fetching appstream data: ${error}`);
     }
+  }
+
+  /**
+   * Get the logo/icon URL from appstream data
+   * @param appstream - Appstream data
+   * @returns Logo URL or null
+   */
+  getLogoUrl(appstream: AppstreamData): string | null {
+    if (appstream.icon) {
+      return appstream.icon;
+    }
+    return null;
   }
 
   /**

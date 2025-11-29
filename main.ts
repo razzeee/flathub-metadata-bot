@@ -7,6 +7,7 @@
 
 import { AppStreamClient, type AppstreamData } from "./src/appstream-client.ts";
 import {
+  type ColorAlgorithm,
   type GenerationMode,
   MetadataGenerator,
 } from "./src/metadata-generator.ts";
@@ -26,6 +27,7 @@ const LLM_PROVIDER = (env.LLM_PROVIDER ||
   Deno.env.get("LLM_PROVIDER") ||
   "ollama") as "openai" | "ollama";
 const LLM_MODEL = env.LLM_MODEL || Deno.env.get("LLM_MODEL");
+const VISION_MODEL = env.VISION_MODEL || Deno.env.get("VISION_MODEL"); // Separate model for vision tasks
 const OLLAMA_BASE_URL = env.OLLAMA_BASE_URL || Deno.env.get("OLLAMA_BASE_URL");
 const GITHUB_TOKEN = env.GITHUB_TOKEN || Deno.env.get("GITHUB_TOKEN");
 const GITLAB_TOKEN = env.GITLAB_TOKEN || Deno.env.get("GITLAB_TOKEN");
@@ -76,13 +78,78 @@ function promptForValue(metadataType: string): string {
 }
 
 /**
+ * Available color algorithms for branding generation
+ */
+const COLOR_ALGORITHMS: ColorAlgorithm[] = [
+  "dominant",
+  "vibrant",
+  "balanced",
+  "complementary",
+  "analogous",
+  "triadic",
+  "split-complementary",
+  "monochromatic",
+  "median-cut",
+  "k-means",
+  "histogram",
+];
+
+/**
+ * Prompt user to select a color algorithm for branding generation
+ * Returns the selected algorithm or undefined to use default
+ */
+function promptColorAlgorithm(): ColorAlgorithm {
+  console.log("\n" + "=".repeat(60));
+  console.log("🎨 Select color algorithm:");
+  console.log("");
+  COLOR_ALGORITHMS.forEach((alg, i) => {
+    const descriptions: Record<ColorAlgorithm, string> = {
+      "dominant": "Extract the most prominent color from the logo",
+      "vibrant": "Find vibrant, eye-catching colors",
+      "balanced": "Create a harmonious, professional palette",
+      "complementary": "Use colors opposite on the color wheel",
+      "analogous": "Use colors adjacent on the color wheel",
+      "triadic": "Use colors evenly spaced (120° apart)",
+      "split-complementary": "Dynamic balance with split complement",
+      "monochromatic": "Variations of a single hue",
+      "median-cut": "Palette extraction via region splitting",
+      "k-means": "Statistical color clustering",
+      "histogram": "Frequency-based color analysis",
+    };
+    console.log(
+      `  ${(i + 1).toString().padStart(2)}. ${alg.padEnd(20)} - ${
+        descriptions[alg]
+      }`,
+    );
+  });
+  console.log("");
+  console.log("=".repeat(60));
+
+  const response = prompt(
+    `Select algorithm (1-${COLOR_ALGORITHMS.length}) [default: 1]: `,
+  );
+
+  if (response === null || response.trim() === "") {
+    return "dominant";
+  }
+
+  const index = parseInt(response.trim(), 10);
+  if (isNaN(index) || index < 1 || index > COLOR_ALGORITHMS.length) {
+    console.log("Invalid selection, using 'dominant'");
+    return "dominant";
+  }
+
+  return COLOR_ALGORITHMS[index - 1];
+}
+
+/**
  * Interactive keyword management prompt
  * Allows user to reroll, add, remove individual keywords
  * Returns: { action: 'accept' | 'regenerate' | 'skip' | 'reroll' | 'add' | 'delete', data?: any }
  */
 function promptKeywordManagement(keywords: string[]): {
   action: string;
-  data?: any;
+  data?: unknown;
 } {
   console.log("\n" + "=".repeat(60));
   console.log("Keyword Management:");
@@ -178,6 +245,7 @@ async function main() {
   let appId: string | undefined;
   let batchMode = false;
   let skipWithKeywords = false;
+  let skipWithBranding = false;
 
   for (let i = 0; i < args.length; i++) {
     if (args[i] === "--mode" && i + 1 < args.length) {
@@ -186,12 +254,15 @@ async function main() {
         modeArg === "keywords" ||
         modeArg === "summary" ||
         modeArg === "description" ||
+        modeArg === "branding" ||
         modeArg === "all"
       ) {
         mode = modeArg;
       } else {
         console.error(`Invalid mode: ${modeArg}`);
-        console.error("Valid modes are: all, keywords, summary, description");
+        console.error(
+          "Valid modes are: all, keywords, summary, description, branding",
+        );
         Deno.exit(1);
       }
       i++; // skip the mode value
@@ -199,6 +270,8 @@ async function main() {
       batchMode = true;
     } else if (args[i] === "--skip-with-keywords") {
       skipWithKeywords = true;
+    } else if (args[i] === "--skip-with-branding") {
+      skipWithBranding = true;
     } else if (!appId) {
       appId = args[i];
     }
@@ -263,19 +336,23 @@ async function main() {
         `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`,
       );
       console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
+      console.log(`   Vision Model: ${VISION_MODEL || "llava:latest"}`);
     } else {
       console.log(`   Model: ${LLM_MODEL || "gpt-4o-mini"}`);
+      console.log(`   Vision Model: ${VISION_MODEL || "gpt-4o-mini"}`);
     }
     if (APPSTREAM_URL) {
       console.log(`   AppStream URL: ${APPSTREAM_URL}`);
     }
     console.log(`   Skip apps with keywords: ${skipWithKeywords}`);
+    console.log(`   Skip apps with branding: ${skipWithBranding}`);
     console.log();
 
     try {
       batchProcessor = new BatchProcessor({
         appstreamUrl: APPSTREAM_URL,
         skipWithKeywords,
+        skipWithBranding,
         autoMarkProcessed: false,
         onAppProcess: (id, appstream) => {
           // Just collect the apps - we'll process them using the main workflow
@@ -324,8 +401,10 @@ async function main() {
           `   Ollama URL: ${OLLAMA_BASE_URL || "http://localhost:11435"}`,
         );
         console.log(`   Model: ${LLM_MODEL || "llama3.2"}`);
+        console.log(`   Vision Model: ${VISION_MODEL || "llava:latest"}`);
       } else {
         console.log(`   Model: ${LLM_MODEL || "gpt-4o-mini"}`);
+        console.log(`   Vision Model: ${VISION_MODEL || "gpt-4o-mini"}`);
       }
       if (APPSTREAM_URL) {
         console.log(`   AppStream URL: ${APPSTREAM_URL}`);
@@ -462,6 +541,7 @@ async function main() {
         apiKey: OPENAI_API_KEY,
         modelName: LLM_MODEL,
         ollamaBaseUrl: OLLAMA_BASE_URL,
+        visionModelName: VISION_MODEL,
       });
 
       // Variables to store generated metadata
@@ -472,10 +552,12 @@ async function main() {
         keywords: boolean;
         summary: boolean;
         description: boolean;
+        branding: boolean;
       } = {
         keywords: false,
         summary: false,
         description: false,
+        branding: false,
       };
 
       // Generate keywords if needed
@@ -523,7 +605,10 @@ async function main() {
               );
               throw new Error("No keywords generated");
             }
-          } else if (decision.action === "reroll") {
+          } else if (
+            decision.action === "reroll" &&
+            typeof decision.data === "number"
+          ) {
             const index = decision.data;
             console.log(
               `\n🔄 Regenerating keyword at position ${index + 1}...`,
@@ -541,7 +626,10 @@ async function main() {
             } else {
               console.error("❌ Failed to generate replacement keyword");
             }
-          } else if (decision.action === "add") {
+          } else if (
+            decision.action === "add" &&
+            typeof decision.data === "string"
+          ) {
             const newKeyword = decision.data;
             // Check for duplicates (case-insensitive)
             const lowerKeywords = keywords.map((k) => k.toLowerCase());
@@ -551,7 +639,10 @@ async function main() {
               keywords.push(newKeyword);
               console.log(`✅ Added keyword: "${newKeyword}"`);
             }
-          } else if (decision.action === "delete") {
+          } else if (
+            decision.action === "delete" &&
+            typeof decision.data === "number"
+          ) {
             const index = decision.data;
             const deleted = keywords.splice(index, 1)[0];
             console.log(`🗑️  Deleted keyword: "${deleted}"`);
@@ -647,11 +738,113 @@ async function main() {
         }
       }
 
+      // Generate branding colors if needed
+      let brandingLight = "";
+      let brandingDark = "";
+      let selectedAlgorithm: ColorAlgorithm = "vibrant"; // Default algorithm
+      if (mode === "all" || mode === "branding") {
+        let brandingDecision = "";
+
+        while (brandingDecision !== "accept" && brandingDecision !== "skip") {
+          console.log("\n🎨 Generating branding colors...");
+          console.log(`   Algorithm: ${selectedAlgorithm}`);
+
+          // Get logo URL
+          const logoUrl = appStreamClient.getLogoUrl(appstream);
+          if (!logoUrl) {
+            console.warn(
+              "⚠️  No logo URL found in appstream data. Skipping branding.",
+            );
+            brandingDecision = "skip";
+            break;
+          }
+
+          console.log(`   Logo URL: ${logoUrl}`);
+
+          // Download logo to temporary location
+          const { downloadImage } = await import("./src/image-utils.ts");
+          const tempLogoPath = `/tmp/${appId}_logo.png`;
+
+          try {
+            await downloadImage(logoUrl, tempLogoPath);
+            console.log(`✅ Downloaded logo to: ${tempLogoPath}`);
+          } catch (error) {
+            console.error(
+              `❌ Failed to download logo: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+            brandingDecision = "skip";
+            break;
+          }
+
+          // Generate branding colors
+          try {
+            const colors = await metadataGenerator.generateBrandingColors(
+              tempLogoPath,
+              selectedAlgorithm,
+            );
+            brandingLight = colors.light;
+            brandingDark = colors.dark;
+
+            console.log(
+              `\n✅ Generated branding colors (${selectedAlgorithm}):`,
+            );
+
+            // Show logo preview on both picked branding colors
+            try {
+              const command = new Deno.Command("python3", {
+                args: [
+                  "src/imgcat.py",
+                  tempLogoPath,
+                  brandingLight,
+                  brandingDark,
+                ],
+              });
+              const { stdout } = await command.output();
+              console.log("\n   Logo Preview:");
+              console.log(new TextDecoder().decode(stdout));
+            } catch (_e) {
+              console.warn("   (Logo preview unavailable)");
+            }
+          } catch (error) {
+            console.error(
+              `❌ Failed to generate branding colors: ${
+                error instanceof Error ? error.message : error
+              }`,
+            );
+            brandingDecision = "skip";
+            break;
+          } finally {
+            // Clean up temporary logo file
+            try {
+              await Deno.remove(tempLogoPath);
+            } catch {
+              // Ignore cleanup errors
+            }
+          }
+
+          brandingDecision = promptForValue("Branding colors");
+          if (brandingDecision === "accept") {
+            acceptedMetadata.branding = true;
+          } else if (brandingDecision === "skip") {
+            console.log("⏭️  Skipping branding");
+          } else {
+            // On regenerate, ask for algorithm again
+            selectedAlgorithm = promptColorAlgorithm();
+            console.log(
+              `🔄 Regenerating branding colors with ${selectedAlgorithm}...`,
+            );
+          }
+        }
+      }
+
       // Check if any metadata was accepted
       if (
         !acceptedMetadata.keywords &&
         !acceptedMetadata.summary &&
-        !acceptedMetadata.description
+        !acceptedMetadata.description &&
+        !acceptedMetadata.branding
       ) {
         console.log("\n⚠️  No metadata changes were accepted.");
         if (batchMode) {
@@ -687,6 +880,14 @@ async function main() {
         acceptedItems.push(`Description: Updated`);
         acceptedChanges.push(
           `### 📝 Description\n\n\`\`\`xml\n${description}\n\`\`\``,
+        );
+      }
+      if (acceptedMetadata.branding) {
+        acceptedItems.push(
+          `Branding: Light ${brandingLight}, Dark ${brandingDark}`,
+        );
+        acceptedChanges.push(
+          `### 🎨 Branding Colors\n\n- **Light theme** (#FAFAFA background): \`${brandingLight}\`\n- **Dark theme** (#251F32 background): \`${brandingDark}\``,
         );
       }
 
@@ -877,6 +1078,17 @@ async function main() {
           patchedContent = filePatcher.patchDescription(tempFile, description);
           hasChanges = true;
           console.log(`   - Applied description to: ${file.path}`);
+        }
+
+        if (acceptedMetadata.branding) {
+          const tempFile = { ...file, content: patchedContent };
+          patchedContent = filePatcher.patchBranding(
+            tempFile,
+            brandingLight,
+            brandingDark,
+          );
+          hasChanges = true;
+          console.log(`   - Applied branding to: ${file.path}`);
         }
 
         if (hasChanges) {

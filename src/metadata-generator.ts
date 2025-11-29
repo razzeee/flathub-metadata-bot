@@ -11,13 +11,32 @@ import { getDescription, getKeywords } from "./appstream-client.ts";
 import { extractAppstreamUrls, fetchWebsitesContent } from "./web-utils.ts";
 
 export type LLMProvider = "openai" | "ollama";
-export type GenerationMode = "keywords" | "summary" | "description" | "all";
+export type GenerationMode =
+  | "keywords"
+  | "summary"
+  | "description"
+  | "branding"
+  | "all";
+
+export type ColorAlgorithm =
+  | "dominant" // Extract dominant colors from the logo
+  | "vibrant" // Find vibrant, eye-catching colors
+  | "balanced" // Create a balanced, harmonious palette
+  | "complementary" // Use complementary colors to the logo
+  | "analogous" // Use analogous colors for subtle harmony
+  | "triadic" // Use triadic color scheme
+  | "split-complementary" // Split-complementary for dynamic balance
+  | "monochromatic" // Variations of a single hue from the logo
+  | "median-cut" // Simulate median cut algorithm for palette extraction
+  | "k-means" // Simulate k-means clustering for color grouping
+  | "histogram"; // Analyze color histogram for frequency-based selection
 
 export interface MetadataGeneratorConfig {
   provider: LLMProvider;
   apiKey?: string;
   modelName?: string;
   ollamaBaseUrl?: string;
+  visionModelName?: string; // Separate model for vision tasks (branding)
 }
 
 // For backwards compatibility
@@ -489,6 +508,216 @@ Return ONLY the XML-formatted description with NO surrounding text, explanations
       return description.trim();
     } catch (error) {
       throw this.handleError(error, "description");
+    }
+  }
+
+  /**
+   * Generate branding colors for an app based on its logo
+   * Uses vision model to analyze the logo and suggest colors for light and dark themes
+   * @param logoPath - Path to the logo image file
+   * @param algorithm - Color selection algorithm to use (default: "dominant")
+   * @returns Object with light and dark theme colors in hex format
+   */
+  async generateBrandingColors(
+    logoPath: string,
+    algorithm: ColorAlgorithm = "dominant",
+  ): Promise<{ light: string; dark: string }> {
+    const { getImageDataUrl } = await import("./image-utils.ts");
+
+    try {
+      // Get image as data URL for vision model
+      const imageDataUrl = await getImageDataUrl(logoPath);
+
+      // Algorithm-specific instructions
+      const algorithmInstructions: Record<ColorAlgorithm, string> = {
+        dominant: `Use DOMINANT COLOR extraction:
+- Identify the most frequently occurring colors in the logo
+- Weight colors by area coverage
+- Select the color that represents the logo's primary visual identity
+- The accent color should be the main recognizable color from the logo`,
+
+        vibrant: `Use VIBRANT COLOR selection:
+- Look for the most saturated, eye-catching colors
+- Prioritize colors with high chroma and visual impact
+- If the logo is muted, enhance saturation while maintaining hue
+- Create energetic, attention-grabbing accent colors
+- The colors don't need to match the logo exactly - find vibrant alternatives that complement it`,
+
+        balanced: `Use BALANCED PALETTE approach:
+- Create a harmonious, visually pleasing color scheme
+- Consider the overall mood and feel of the logo
+- Balance saturation and brightness for a professional look
+- Colors should feel cohesive but not necessarily extracted from the logo
+- Aim for a refined, polished appearance`,
+
+        complementary: `Use COMPLEMENTARY COLOR theory:
+- Identify the dominant hue in the logo
+- Select colors from the opposite side of the color wheel
+- Create visual contrast and energy
+- The accent colors will stand out against the logo rather than match it
+- Great for creating visual interest and highlighting UI elements`,
+
+        analogous: `Use ANALOGOUS COLOR harmony:
+- Identify the dominant hue in the logo
+- Select colors from adjacent positions on the color wheel (±30-60°)
+- Create a subtle, harmonious palette
+- Colors will feel related but offer gentle variation
+- Good for a cohesive, unified look`,
+
+        triadic: `Use TRIADIC COLOR scheme:
+- Identify the dominant hue in the logo
+- Select colors evenly spaced around the color wheel (120° apart)
+- Create a vibrant, dynamic palette with balanced contrast
+- Colors will feel energetic while maintaining harmony
+- Choose the triadic color that best complements the app's purpose`,
+
+        "split-complementary": `Use SPLIT-COMPLEMENTARY scheme:
+- Identify the dominant hue in the logo
+- Instead of direct complement, use the two colors adjacent to the complement
+- Creates contrast with less tension than pure complementary
+- Offers variety while maintaining visual balance
+- Good for a dynamic yet approachable feel`,
+
+        monochromatic: `Use MONOCHROMATIC approach:
+- Identify the dominant hue in the logo
+- Create variations using only that single hue
+- Vary saturation and lightness to create contrast
+- Results in a very cohesive, elegant appearance
+- Light theme: darker shade; Dark theme: lighter tint of the same hue`,
+
+        "median-cut": `Simulate MEDIAN CUT algorithm:
+- Mentally divide the color space into regions based on color distribution
+- Recursively split the most varied color region
+- Select representative colors from the resulting partitions
+- Focus on colors that represent distinct visual regions of the logo
+- Good for logos with multiple distinct color areas`,
+
+        "k-means": `Simulate K-MEANS CLUSTERING:
+- Identify 3-5 natural color clusters in the logo
+- Find the centroid (average) color of the most prominent cluster
+- Consider cluster size when weighting importance
+- Results in colors that represent the statistical center of color groups
+- Good for finding the "true average" brand color`,
+
+        histogram: `Use HISTOGRAM ANALYSIS:
+- Analyze the frequency distribution of colors
+- Identify peaks in the color histogram
+- Select colors from the most significant peaks
+- Weight by both frequency and visual distinctiveness
+- Ignore very light/dark colors that might be background or outlines
+- Good for finding colors that appear most often in the logo`,
+      };
+
+      const systemPrompt =
+        `You are a color expert specializing in branding and accessibility for software applications.
+Your task is to analyze an application logo and suggest two primary accent colors using a specific color selection approach.
+
+COLOR SELECTION ALGORITHM:
+${algorithmInstructions[algorithm]}
+
+CRITICAL OUTPUT FORMAT:
+- Return ONLY two hex color codes separated by a comma
+- First color is for LIGHT theme (background: #FAFAFA)
+- Second color is for DARK theme (background: #251F32)
+- Format: #RRGGBB,#RRGGBB
+- NO explanations, NO other text, JUST the two hex codes
+
+COLOR REQUIREMENTS:
+1. LIGHT THEME COLOR (first color):
+   - Must have good contrast with #FAFAFA background (light gray)
+   - Must be readable and accessible (WCAG AA minimum)
+   - Should work well for UI accents, buttons, and interactive elements
+
+2. DARK THEME COLOR (second color):
+   - Must have good contrast with #251F32 background (dark purple-gray)
+   - Must be readable and accessible (WCAG AA minimum)
+   - Should work well for UI accents, buttons, and interactive elements
+
+DESIGN PRINCIPLES:
+- Apply the specified algorithm to guide your color selection
+- The colors don't have to be directly extracted from the logo - they should WORK WITH the logo
+- Prioritize accessibility and readability
+- Both colors should feel like they belong to the same brand family
+- Adjust saturation and brightness as needed for each theme
+
+Remember: Output ONLY the two hex codes in format: #RRGGBB,#RRGGBB`;
+
+      const userPrompt =
+        `Analyze this application logo using the ${algorithm.toUpperCase()} approach and suggest two primary accent colors.
+
+First color: For LIGHT theme (background #FAFAFA)
+Second color: For DARK theme (background #251F32)
+
+Return ONLY the two hex codes separated by comma: #RRGGBB,#RRGGBB`;
+
+      // Use vision model if available, otherwise fall back to regular model
+      const visionModelName = this.config.visionModelName ||
+        this.config.modelName;
+
+      let visionModel: ChatOpenAI | ChatOllama;
+
+      if (this.config.provider === "ollama") {
+        visionModel = new ChatOllama({
+          model: visionModelName || "llava:latest",
+          baseUrl: this.config.ollamaBaseUrl || "http://localhost:11435",
+          temperature: 0.3, // Lower temperature for more consistent color suggestions
+        });
+      } else {
+        if (!this.config.apiKey) {
+          throw new Error("OpenAI API key is required for vision model");
+        }
+        visionModel = new ChatOpenAI({
+          openAIApiKey: this.config.apiKey,
+          modelName: visionModelName || "gpt-4o-mini",
+          temperature: 0.3,
+        }) as ChatOpenAI;
+      }
+
+      const messages = [
+        new SystemMessage(systemPrompt),
+        new HumanMessage({
+          content: [
+            {
+              type: "text",
+              text: userPrompt,
+            },
+            {
+              type: "image_url",
+              image_url: {
+                url: imageDataUrl,
+              },
+            },
+          ],
+        }),
+      ];
+
+      const response = await visionModel.invoke(messages);
+      const content = response.content.toString().trim();
+
+      // Parse the response - expecting format: #RRGGBB,#RRGGBB
+      const colorMatch = content.match(/#([0-9A-Fa-f]{6}),#([0-9A-Fa-f]{6})/);
+
+      if (!colorMatch) {
+        // Try to extract any hex colors from the response
+        const hexColors = content.match(/#[0-9A-Fa-f]{6}/g);
+        if (hexColors && hexColors.length >= 2) {
+          return {
+            light: hexColors[0],
+            dark: hexColors[1],
+          };
+        }
+
+        throw new Error(
+          `Failed to parse branding colors from response: ${content}`,
+        );
+      }
+
+      return {
+        light: `#${colorMatch[1]}`,
+        dark: `#${colorMatch[2]}`,
+      };
+    } catch (error) {
+      throw this.handleError(error, "branding colors");
     }
   }
 

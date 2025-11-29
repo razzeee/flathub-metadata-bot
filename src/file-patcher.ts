@@ -256,6 +256,77 @@ export class FilePatcher {
   }
 
   /**
+   * Check if a file already contains branding
+   * @param file - Metadata file to check
+   * @returns true if branding exists, false otherwise
+   */
+  hasBranding(file: MetadataFile): boolean {
+    if (file.type === "desktop") {
+      return false; // Branding is not supported in .desktop files
+    }
+    return /\<branding\>[\s\S]*?\<\/branding\>/m.test(file.content);
+  }
+
+  /**
+   * Extract existing branding colors from a file
+   * @param file - Metadata file to extract from
+   * @returns Object with light and dark colors, or null if not found
+   */
+  getExistingBranding(
+    file: MetadataFile,
+  ): { light: string | null; dark: string | null } | null {
+    if (file.type === "desktop") {
+      return null; // Branding is not supported in .desktop files
+    }
+
+    const brandingMatch = file.content.match(
+      /\<branding\>([\s\S]*?)\<\/branding\>/m,
+    );
+    if (!brandingMatch) {
+      return null;
+    }
+
+    const brandingContent = brandingMatch[1];
+
+    // Extract light theme color
+    const lightMatch = brandingContent.match(
+      /\<color\s+type="primary"\s+scheme_preference="light"\>(#[0-9A-Fa-f]{6})\<\/color\>/,
+    );
+
+    // Extract dark theme color
+    const darkMatch = brandingContent.match(
+      /\<color\s+type="primary"\s+scheme_preference="dark"\>(#[0-9A-Fa-f]{6})\<\/color\>/,
+    );
+
+    return {
+      light: lightMatch ? lightMatch[1] : null,
+      dark: darkMatch ? darkMatch[1] : null,
+    };
+  }
+
+  /**
+   * Patch branding into an appstream metadata file
+   * Note: Branding is only patched in XML files (appstream), not desktop files
+   * @param file - Metadata file to patch
+   * @param lightColor - Hex color for light theme
+   * @param darkColor - Hex color for dark theme
+   * @returns Updated file content
+   */
+  patchBranding(
+    file: MetadataFile,
+    lightColor: string,
+    darkColor: string,
+  ): string {
+    if (file.type === "desktop") {
+      console.warn(
+        "  ⚠️  Skipping desktop file - branding only added to appstream files",
+      );
+      return file.content;
+    }
+    return this.patchBrandingXml(file.content, lightColor, darkColor);
+  }
+
+  /**
    * Patch keywords in a .desktop file
    * @param content - File content
    * @param keywords - Keywords to add
@@ -515,6 +586,60 @@ export class FilePatcher {
             return content + "\n" + descriptionSection;
           }
         }
+      }
+    }
+  }
+
+  /**
+   * Patch branding in a .metainfo.xml or .appdata.xml file
+   * @param content - File content
+   * @param lightColor - Hex color for light theme
+   * @param darkColor - Hex color for dark theme
+   * @returns Updated content
+   */
+  private patchBrandingXml(
+    content: string,
+    lightColor: string,
+    darkColor: string,
+  ): string {
+    // Detect existing indentation
+    const existingMatch = content.match(/^(\s*)\<branding\>/m);
+    let baseIndent: string;
+
+    if (existingMatch) {
+      // Use existing branding indentation
+      baseIndent = existingMatch[1];
+    } else {
+      // Detect from other elements (try <name>, <summary>, or <component> children)
+      const elementMatch = content.match(/^(\s*)\<(?:name|summary|id)\>/m);
+      baseIndent = elementMatch
+        ? elementMatch[1]
+        : this.getIndent(content, null, 1);
+    }
+
+    const contentIndent = this.getIndent(content, baseIndent, 1);
+
+    // Generate branding XML with proper indentation
+    const brandingSection = `${baseIndent}<branding>
+${contentIndent}<color type="primary" scheme_preference="light">${lightColor}</color>
+${contentIndent}<color type="primary" scheme_preference="dark">${darkColor}</color>
+${baseIndent}</branding>`;
+
+    // Check if <branding> section already exists
+    const brandingRegex = /^\s*\<branding\>[\s\S]*?\<\/branding\>/m;
+
+    if (brandingRegex.test(content)) {
+      // Replace existing branding section
+      return content.replace(brandingRegex, brandingSection);
+    } else {
+      // Add branding section before </component>
+      const componentEndRegex = /^(\s*)(\<\/component\>)/m;
+
+      if (componentEndRegex.test(content)) {
+        return content.replace(componentEndRegex, `${brandingSection}\n$1$2`);
+      } else {
+        // If no </component> tag, add at the end
+        return content + "\n" + brandingSection;
       }
     }
   }

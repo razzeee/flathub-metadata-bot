@@ -9,6 +9,7 @@ Automate metadata generation for Flathub apps using AI and create pull requests 
   - **Keywords** - Relevant search terms for discoverability
   - **Summaries** - Short, user-friendly descriptions (following Flathub guidelines)
   - **Descriptions** - Detailed app information (following Flathub guidelines)
+  - **Branding Colors** - Theme-aware accent colors using vision AI (11 color algorithms)
 - 📦 Clones source repositories and finds metadata files
 - ✏️ Patches `.desktop` and appstream files (`.metainfo.xml`, `.appdata.xml`)
 - 🔄 Creates pull requests on **multiple platforms**:
@@ -132,7 +133,7 @@ deno task dev --mode description org.inkscape.Inkscape
 
 #### Modes
 
-- **all** (default) - Generates keywords, summary, AND description
+- **all** (default) - Generates keywords, summary, description, AND branding colors
   - You'll be prompted to accept/regenerate/skip each one individually
   - Only accepted values will be included in the final PR
   - Most flexible approach
@@ -146,6 +147,30 @@ deno task dev --mode description org.inkscape.Inkscape
   - 3-6 lines (~210-420 characters)
   - Informative but scannable
   - Added to appstream XML files only
+- **branding** - Generates branding colors for light and dark themes
+  - Analyzes app logo using vision AI
+  - Suggests accent colors that work with the logo
+  - Multiple color algorithms available (see below)
+
+#### Branding Color Algorithms
+
+When generating branding colors, the bot uses the **vibrant** algorithm by default. If you regenerate, you can choose from different algorithms:
+
+| Algorithm | Description |
+|-----------|-------------|
+| `dominant` | Extract the most prominent color from the logo |
+| `vibrant` | Find vibrant, eye-catching colors (default) |
+| `balanced` | Create a harmonious, professional palette |
+| `complementary` | Use colors opposite on the color wheel |
+| `analogous` | Use colors adjacent on the color wheel |
+| `triadic` | Use colors evenly spaced (120° apart) |
+| `split-complementary` | Dynamic balance with split complement |
+| `monochromatic` | Variations of a single hue |
+| `median-cut` | Palette extraction via region splitting |
+| `k-means` | Statistical color clustering |
+| `histogram` | Frequency-based color analysis |
+
+**Note:** The colors don't have to be directly from the logo - they should *work with* the logo. Each algorithm takes a different approach to finding colors that complement the app's visual identity.
 
 ### Batch Processing Mode
 
@@ -230,9 +255,12 @@ metadata-bot/
 
 - `LLM_PROVIDER` (optional) - LLM provider to use: `openai` or `ollama` (default: `ollama`)
 - `OPENAI_API_KEY` (required for OpenAI) - Your OpenAI API key
-- `LLM_MODEL` (optional) - Model name to use
+- `LLM_MODEL` (optional) - Model name to use for text generation
   - OpenAI: `gpt-4o-mini` (default), `gpt-4o`, `gpt-3.5-turbo`, etc.
   - Ollama: `llama3.2:1b` (default), `llama3.2`, `mistral`, `qwen2.5`, etc.
+- `VISION_MODEL` (optional) - Model name to use for vision tasks (branding color generation)
+  - OpenAI: `gpt-4o-mini` (default), `gpt-4o`, etc.
+  - Ollama: `llava:latest` (default), `llava:13b`, `bakllava`, etc.
 - `OLLAMA_BASE_URL` (optional) - Ollama server URL (default: `http://localhost:11435`)
 - `GITHUB_TOKEN` (optional) - GitHub Personal Access Token with `repo` scope
 - `GITLAB_TOKEN` (optional) - GitLab.com Personal Access Token with `api` scope

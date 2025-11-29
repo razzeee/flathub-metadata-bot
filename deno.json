@@ -9,7 +9,7 @@
     "fmt": "deno fmt",
     "fmt:check": "deno fmt --check",
     "lint": "deno lint",
-    "check": "deno check **/*.ts",
+    "check": "deno check main.ts src/**/*.ts",
     "quality": "deno task fmt:check && deno task lint && deno task check && deno task test"
   },
   "imports": {
