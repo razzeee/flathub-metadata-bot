@@ -624,14 +624,14 @@ CRITICAL OUTPUT FORMAT:
 
 COLOR REQUIREMENTS:
 1. LIGHT THEME COLOR (first color):
-   - Must have good contrast with #FAFAFA background (light gray)
+   - Must work with #FAFAFA background (light gray)
    - Must be readable and accessible (WCAG AA minimum)
-   - Should work well for UI accents, buttons, and interactive elements
+   - Usually a lighter or more saturated color than the dark theme color
 
 2. DARK THEME COLOR (second color):
-   - Must have good contrast with #251F32 background (dark purple-gray)
+   - Must work with #251F32 background (dark purple-gray)
    - Must be readable and accessible (WCAG AA minimum)
-   - Should work well for UI accents, buttons, and interactive elements
+    - Usually a darker or less saturated color than the light theme color
 
 DESIGN PRINCIPLES:
 - Apply the specified algorithm to guide your color selection
