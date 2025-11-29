@@ -626,12 +626,23 @@ COLOR REQUIREMENTS:
 1. LIGHT THEME COLOR (first color):
    - Must work with #FAFAFA background (light gray)
    - Must be readable and accessible (WCAG AA minimum)
-   - Usually a lighter or more saturated color than the dark theme color
+   - Should be a saturated, colorful accent color
+   - Must NOT be white, very light gray, or near-white colors
 
 2. DARK THEME COLOR (second color):
    - Must work with #251F32 background (dark purple-gray)
    - Must be readable and accessible (WCAG AA minimum)
-    - Usually a darker or less saturated color than the light theme color
+   - Should be a darker, more muted version of the light theme color
+   - Must NOT be black, very dark gray, or near-black colors
+   - Must NOT be a light color - dark variant should always be darker than light variant
+
+FLATHUB QUALITY GUIDELINES:
+- Brand colors are used as BACKGROUND behind the app icon on Flathub
+- Colors must have GOOD CONTRAST with the app icon (not too similar to icon colors)
+- NEVER use the same color for both light and dark variants
+- Colors should be COLORFUL - avoid white, black, and grays
+- Think of brand colors as an extension of the app icon
+- Good approach: Use lighter/darker version of icon's primary color, or a complementary color
 
 DESIGN PRINCIPLES:
 - Apply the specified algorithm to guide your color selection
@@ -639,6 +650,7 @@ DESIGN PRINCIPLES:
 - Prioritize accessibility and readability
 - Both colors should feel like they belong to the same brand family
 - Adjust saturation and brightness as needed for each theme
+- Ensure the icon will be visible when placed on top of these background colors
 
 Remember: Output ONLY the two hex codes in format: #RRGGBB,#RRGGBB`;
 

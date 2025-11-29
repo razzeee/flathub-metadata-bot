@@ -178,6 +178,51 @@ Appstream files support full metadata for app stores like Flathub.
 </description>
 ```
 
+## Branding Colors Generation
+
+### Guidelines Implemented
+
+Based on [Flathub Quality Guidelines - Brand Colors](https://docs.flathub.org/docs/for-app-authors/metainfo-guidelines/quality-guidelines/#brand-colors):
+
+1. **Two Primary Colors Required**
+   - Light theme color (for #FAFAFA background)
+   - Dark theme color (for #251F32 background)
+
+2. **Good Contrast with Icon**
+   - Brand colors are used as BACKGROUND behind the app icon
+   - Colors must NOT be too similar to icon colors
+   - Icon must remain visible on the brand color background
+
+3. **Color Quality Rules**
+   - Colors should be COLORFUL (saturated)
+   - Avoid white, very light grays, black, and very dark grays
+   - Dark variant should be darker/more muted than light variant
+   - NEVER use same color for both variants
+   - Light colors for dark theme are NOT allowed
+
+4. **Brand Consistency**
+   - Colors should feel like an extension of the app icon
+   - Good approach: lighter/darker version of icon's primary color
+   - Alternative: complementary color that pairs well with icon
+
+### Output Format
+
+```xml
+<branding>
+  <color type="primary" scheme_preference="light">#faa298</color>
+  <color type="primary" scheme_preference="dark">#7f2c22</color>
+</branding>
+```
+
+### AI Prompt Strategy
+
+The vision model prompt includes:
+- Analysis of the app icon/logo
+- Multiple color algorithm options (dominant, vibrant, complementary, etc.)
+- WCAG accessibility requirements
+- Explicit guidelines about contrast with icon
+- Prevention of grayscale/near-white/near-black colors
+
 ## Benefits of Following Guidelines
 
 According to Flathub documentation:
