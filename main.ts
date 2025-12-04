@@ -1182,7 +1182,12 @@ async function main() {
           ): Promise<void> => {
             for (let attempt = 1; attempt <= maxAttempts; attempt++) {
               try {
-                await repoManager.pushBranch(repoPath, remote, branchName);
+                await repoManager.pushBranch(
+                  repoPath,
+                  remote,
+                  branchName,
+                  GITHUB_TOKEN,
+                );
                 return;
               } catch (err) {
                 const msg = err instanceof Error ? err.message : String(err);
@@ -1243,7 +1248,12 @@ async function main() {
             }
 
             const forkRemoteUrl = `https://github.com/${forkOwner}/${repo}.git`;
-            await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+            await repoManager.addRemote(
+              repoPath,
+              "fork",
+              forkRemoteUrl,
+              GITHUB_TOKEN,
+            );
             console.log("🚚 Pushing branch to fork remote (with retries)...");
             await pushWithRetries("fork");
             console.log("✅ Pushed to fork");
@@ -1280,7 +1290,12 @@ async function main() {
               }
               const forkRemoteUrl =
                 `https://github.com/${forkOwnerFallback}/${repo}.git`;
-              await repoManager.addRemote(repoPath, "fork", forkRemoteUrl);
+              await repoManager.addRemote(
+                repoPath,
+                "fork",
+                forkRemoteUrl,
+                GITHUB_TOKEN,
+              );
               await pushWithRetries("fork");
               headOverride = `${forkOwnerFallback}:${branchName}`;
               console.log("✅ Pushed to fork (fallback)");
