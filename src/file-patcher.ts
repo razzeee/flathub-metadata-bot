@@ -204,20 +204,15 @@ export class FilePatcher {
   /**
    * Patch keywords into a metadata file
    * @param file - Metadata file to patch
-   * @param keywords - Keywords to add
+   * @param keywords - Keywords to add (replaces existing keywords)
    * @returns Updated file content
    */
   patchKeywords(file: MetadataFile, keywords: string[]): string {
-    // Check if keywords already exist and merge if they do
-    const existing = this.getExistingKeywords(file);
-    const mergedKeywords = existing.length > 0
-      ? this.mergeKeywords(existing, keywords)
-      : keywords;
-
+    // Replace existing keywords with new ones (no merge)
     if (file.type === "desktop") {
-      return this.patchDesktopFile(file.content, mergedKeywords);
+      return this.patchDesktopFile(file.content, keywords);
     } else {
-      return this.patchKeywordsXml(file.content, mergedKeywords);
+      return this.patchKeywordsXml(file.content, keywords);
     }
   }
 

@@ -25,7 +25,7 @@ Exec=test-app
 });
 
 Deno.test(
-  "FilePatcher - patchKeywords merges keywords in desktop file when they exist",
+  "FilePatcher - patchKeywords replaces keywords in desktop file when they exist",
   () => {
     const patcher = new FilePatcher();
     const file: MetadataFile = {
@@ -41,9 +41,9 @@ Exec=test-app
     const keywords = ["new", "keywords"];
     const result = patcher.patchKeywords(file, keywords);
 
-    // Should merge old and new keywords
-    assertStringIncludes(result, "old");
-    assertStringIncludes(result, "existing");
+    // Should replace old keywords with new ones
+    assertEquals(result.includes("old"), false);
+    assertEquals(result.includes("existing"), false);
     assertStringIncludes(result, "new");
     assertStringIncludes(result, "keywords");
     assertEquals(result.match(/Keywords=/g)?.length, 1);
@@ -320,7 +320,7 @@ Deno.test("FilePatcher - mergeKeywords avoids duplicates", () => {
   assertEquals(merged, ["test", "sample", "demo", "example"]);
 });
 
-Deno.test("FilePatcher - patchKeywords merges with existing keywords in desktop file", () => {
+Deno.test("FilePatcher - patchKeywords replaces existing keywords in desktop file", () => {
   const patcher = new FilePatcher();
   const file: MetadataFile = {
     path: "/test/app.desktop",
@@ -335,15 +335,15 @@ Exec=test-app
   const newKeywords = ["new", "keywords", "here"];
   const result = patcher.patchKeywords(file, newKeywords);
 
-  // Should contain both existing and new keywords
-  assertStringIncludes(result, "existing");
+  // Should replace existing keywords with new ones
+  assertEquals(result.includes("existing"), false);
   assertStringIncludes(result, "new");
+  assertStringIncludes(result, "keywords");
   assertStringIncludes(result, "here");
-  // But "keywords" should only appear once (case-insensitive deduplication)
   assertEquals(result.match(/Keywords=/g)?.length, 1);
 });
 
-Deno.test("FilePatcher - patchKeywords merges with existing keywords in XML file", () => {
+Deno.test("FilePatcher - patchKeywords replaces existing keywords in XML file", () => {
   const patcher = new FilePatcher();
   const file: MetadataFile = {
     path: "/test/app.metainfo.xml",
@@ -362,11 +362,9 @@ Deno.test("FilePatcher - patchKeywords merges with existing keywords in XML file
   const newKeywords = ["new", "keywords", "here"];
   const result = patcher.patchKeywords(file, newKeywords);
 
-  // Should contain both existing and new keywords
-  assertStringIncludes(result, "<keyword>existing</keyword>");
+  // Should replace existing keywords with new ones
+  assertEquals(result.includes("<keyword>existing</keyword>"), false);
   assertStringIncludes(result, "<keyword>new</keyword>");
+  assertStringIncludes(result, "<keyword>keywords</keyword>");
   assertStringIncludes(result, "<keyword>here</keyword>");
-  // But "keywords" should only appear once (case-insensitive deduplication)
-  const keywordMatches = result.match(/<keyword>keywords<\/keyword>/g);
-  assertEquals(keywordMatches?.length, 1);
 });

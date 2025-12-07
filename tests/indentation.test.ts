@@ -93,11 +93,13 @@ Deno.test("Indentation - preserves existing keyword indentation in XML", () => {
   const keywords = ["new", "keywords"];
   const result = patcher.patchKeywords(file, keywords);
 
-  // Should match existing 2-space indentation
+  // Should match existing 2-space indentation and replace keywords
   assertStringIncludes(result, "  <keywords>");
-  assertStringIncludes(result, "    <keyword>existing</keyword>");
   assertStringIncludes(result, "    <keyword>new</keyword>");
+  assertStringIncludes(result, "    <keyword>keywords</keyword>");
   assertStringIncludes(result, "  </keywords>");
+  // Old keywords should be replaced
+  assertEquals(result.includes("<keyword>existing</keyword>"), false);
 });
 
 Deno.test("Indentation - preserves existing keyword indentation with tabs", () => {
@@ -118,11 +120,13 @@ Deno.test("Indentation - preserves existing keyword indentation with tabs", () =
   const keywords = ["new", "keywords"];
   const result = patcher.patchKeywords(file, keywords);
 
-  // Should match existing tab indentation
+  // Should match existing tab indentation and replace keywords
   assertStringIncludes(result, "\t<keywords>");
-  assertStringIncludes(result, "\t\t<keyword>existing</keyword>");
   assertStringIncludes(result, "\t\t<keyword>new</keyword>");
+  assertStringIncludes(result, "\t\t<keyword>keywords</keyword>");
   assertStringIncludes(result, "\t</keywords>");
+  // Old keywords should be replaced
+  assertEquals(result.includes("<keyword>existing</keyword>"), false);
 });
 
 Deno.test("Indentation - summary uses same indentation as other elements", () => {

@@ -7,7 +7,7 @@ import { FilePatcher } from "../src/file-patcher.ts";
 import type { MetadataFile } from "../src/repository-manager.ts";
 
 Deno.test(
-  "Scenario: Keywords exist in .desktop file only - should update there",
+  "Scenario: Keywords exist in .desktop file only - should replace them",
   () => {
     const patcher = new FilePatcher();
 
@@ -41,19 +41,19 @@ Exec=test-app
     assertEquals(hasKeywordsInDesktop, true);
     assertEquals(hasKeywordsInXml, false);
 
-    // Keywords should be added to desktop file only
+    // Keywords should replace existing ones in desktop file
     const newKeywords = ["new", "additional"];
     const patchedDesktop = patcher.patchKeywords(desktopFile, newKeywords);
 
-    // Should contain both old and new
-    assertEquals(patchedDesktop.includes("existing"), true);
+    // Should contain only new keywords (old ones replaced)
+    assertEquals(patchedDesktop.includes("existing"), false);
     assertEquals(patchedDesktop.includes("new"), true);
     assertEquals(patchedDesktop.includes("additional"), true);
   }
 );
 
 Deno.test(
-  "Scenario: Keywords exist in XML file only - should update there",
+  "Scenario: Keywords exist in XML file only - should replace them",
   () => {
     const patcher = new FilePatcher();
 
@@ -88,18 +88,18 @@ Exec=test-app
     assertEquals(hasKeywordsInDesktop, false);
     assertEquals(hasKeywordsInXml, true);
 
-    // Keywords should be added to XML file only
+    // Keywords should replace existing ones in XML file
     const newKeywords = ["new", "additional"];
     const patchedXml = patcher.patchKeywords(xmlFile, newKeywords);
 
-    // Should contain both old and new
-    assertEquals(patchedXml.includes("<keyword>existing</keyword>"), true);
+    // Should contain only new keywords (old ones replaced)
+    assertEquals(patchedXml.includes("<keyword>existing</keyword>"), false);
     assertEquals(patchedXml.includes("<keyword>new</keyword>"), true);
     assertEquals(patchedXml.includes("<keyword>additional</keyword>"), true);
   }
 );
 
-Deno.test("Scenario: Keywords exist in BOTH files - should update both", () => {
+Deno.test("Scenario: Keywords exist in BOTH files - should replace in both", () => {
   const patcher = new FilePatcher();
 
   const desktopFile: MetadataFile = {
@@ -134,17 +134,17 @@ Exec=test-app
   assertEquals(hasKeywordsInDesktop, true);
   assertEquals(hasKeywordsInXml, true);
 
-  // Keywords should be added to both files
+  // Keywords should replace existing ones in both files
   const newKeywords = ["new", "additional"];
   const patchedDesktop = patcher.patchKeywords(desktopFile, newKeywords);
   const patchedXml = patcher.patchKeywords(xmlFile, newKeywords);
 
-  // Desktop should contain its old keywords + new ones
-  assertEquals(patchedDesktop.includes("desktop"), true);
+  // Desktop should contain only new keywords (old ones replaced)
+  assertEquals(patchedDesktop.includes("desktop"), false);
   assertEquals(patchedDesktop.includes("new"), true);
 
-  // XML should contain its old keywords + new ones
-  assertEquals(patchedXml.includes("<keyword>xml</keyword>"), true);
+  // XML should contain only new keywords (old ones replaced)
+  assertEquals(patchedXml.includes("<keyword>xml</keyword>"), false);
   assertEquals(patchedXml.includes("<keyword>new</keyword>"), true);
 });
 
@@ -191,7 +191,7 @@ Exec=test-app
 });
 
 Deno.test(
-  "Scenario: Keywords with attributes - should be detected and preserved",
+  "Scenario: Keywords with attributes - should be detected and replaced while preserving attributes",
   () => {
     const patcher = new FilePatcher();
 
@@ -217,13 +217,14 @@ Deno.test(
     const existing = patcher.getExistingKeywords(xmlFile);
     assertEquals(existing.includes("existing"), true);
 
-    // Should preserve attributes when patching
+    // Should replace keywords while preserving attributes
     const newKeywords = ["new"];
     const patched = patcher.patchKeywords(xmlFile, newKeywords);
 
     // Check if attribute is preserved
     assertEquals(patched.includes('<keywords xml:lang="en">'), true);
-    assertEquals(patched.includes("<keyword>existing</keyword>"), true);
+    // Old keywords should be replaced
+    assertEquals(patched.includes("<keyword>existing</keyword>"), false);
     assertEquals(patched.includes("<keyword>new</keyword>"), true);
   }
 );
